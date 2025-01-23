@@ -1,0 +1,12 @@
+[package]
+name = "source_control_event_store_persistence_adapter"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.85"
+eventstore = "3.0.0"
+log = "0.4.22"
+serde = "1.0.217"
+serde_json = "1.0.135"
+source_control_domain = {path= "../../../../domains/source_control"}

@@ -1,0 +1,14 @@
+[package]
+name = "source_control_domain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "2.0.11"
+derive_id = {path="../../utils/derive_id"}
+chrono = "0.4.39"
+hex = "0.4.3"
+async-trait = "0.1.85"
+
+[dev-dependencies]
+clippy = "0.0.302"

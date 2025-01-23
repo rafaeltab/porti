@@ -1,0 +1,11 @@
+[package]
+name = "source_control_application"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+source_control_domain = {path="../../domains/source_control"}
+thiserror = "2.0.11"
+
+[dev-dependencies]
+clippy = "0.0.302"

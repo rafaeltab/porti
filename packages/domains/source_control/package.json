@@ -1,0 +1,9 @@
+{
+    "$schema": "https://json.schemastore.org/package.json",
+    "name": "@porti/source-control-domain",
+    "version": "0.0.1",
+    "scripts": {
+        "build": "cargo build",
+        "test": "cargo test"
+    }
+}

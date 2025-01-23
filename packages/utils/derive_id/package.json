@@ -1,0 +1,7 @@
+{
+    "$schema": "https://json.schemastore.org/package.json",
+    "name": "@porti/derive_id_util",
+    "version": "0.0.1",
+    "scripts": {
+    }
+}

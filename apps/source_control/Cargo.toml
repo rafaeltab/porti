@@ -1,0 +1,10 @@
+[package]
+name = "source_control"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+source_control_rest_interface = {path="../../packages/adapters/source_control/presentation/rest"}
+source_control_application = {path="../../packages/applications/source_control"}
+source_control_event_store_persistence_adapter = {path="../../packages/adapters/source_control/persistence/event_store"}
+actix-web = "4.9.0"
