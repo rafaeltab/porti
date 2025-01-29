@@ -1,0 +1,1 @@
+INSERT INTO "Organization" (id, name)  VALUES ($1, $2);

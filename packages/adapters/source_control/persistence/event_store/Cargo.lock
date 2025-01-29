@@ -286,6 +286,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "event_store_util"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "eventstore",
+ "log",
+ "serde",
+ "serde_json",
+ "source_control_domain",
+]
+
+[[package]]
 name = "eventstore"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1425,6 +1437,7 @@ name = "source_control_event_store_persistence_adapter"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "event_store_util",
  "eventstore",
  "log",
  "serde",

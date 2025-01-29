@@ -11,7 +11,7 @@ pub struct CreateOrganizationCommand {
 }
 
 pub struct CreateOrganizationCommandHandler {
-    pub repository: Arc<Box<dyn OrganizationRepository>>,
+    pub repository: Arc<dyn OrganizationRepository>,
 }
 
 impl CreateOrganizationCommandHandler {

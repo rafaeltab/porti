@@ -7,7 +7,7 @@ pub struct PlatformAccountId(pub u64);
 
 #[derive(Clone)]
 pub struct PlatformAccount {
-    pub id: PlatformAccountId ,
+    pub id: PlatformAccountId,
     pub name: String,
     pub platform: Platform,
 }

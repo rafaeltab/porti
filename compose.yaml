@@ -1,0 +1,54 @@
+version: '3.9'
+services:
+  eventstore.db:
+    image: docker.eventstore.com/eventstore/eventstoredb-ee:24.10.1
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_RUN_PROJECTIONS=All
+      - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+      - EVENTSTORE_NODE_PORT=2113
+      - EVENTSTORE_INSECURE=true
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - "2113:2113"
+    volumes:
+      - type: volume
+        source: eventstore-volume-data
+        target: /var/lib/eventstore
+      - type: volume
+        source: eventstore-volume-logs
+        target: /var/log/eventstore
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - type: volume
+        source: psql-volume-data
+        target: /var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=S3cret
+      - POSTGRES_USER=source_control
+      - POSTGRES_DB=source_control
+
+volumes:
+  eventstore-volume-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/eventstore_volume_data
+
+  eventstore-volume-logs:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/eventstore_volume_logs
+
+  psql-volume-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/psql_volume_data

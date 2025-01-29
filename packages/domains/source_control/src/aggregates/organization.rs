@@ -7,21 +7,21 @@ use crate::entities::{
 
 use super::base::{Aggregate, DomainError, DomainEvent};
 
-pub type OrganizationAggregate = Aggregate<OrganizationEvents, Organization>;
+pub type OrganizationAggregate = Aggregate<OrganizationEvent, Organization>;
 
 impl OrganizationAggregate {
     pub fn add_platform_account(
         &mut self,
         platform_account: PlatformAccount,
-    ) -> Result<(), OrganizationErrors> {
+    ) -> Result<(), OrganizationError> {
         if self.root.has_account(&platform_account) {
-            return Err(OrganizationErrors::AccountAlreadyAdded {
+            return Err(OrganizationError::AccountAlreadyAdded {
                 account_id: platform_account.id,
                 organization_id: self.root.id,
             });
         }
 
-        let event = OrganizationEvents::AddPlatformAccount {
+        let event = OrganizationEvent::AddPlatformAccount {
             account: platform_account,
             organization_id: self.root.id,
         };
@@ -33,15 +33,15 @@ impl OrganizationAggregate {
     pub fn remove_platform_account(
         &mut self,
         platform_account: &PlatformAccount,
-    ) -> Result<(), OrganizationErrors> {
+    ) -> Result<(), OrganizationError> {
         if !self.root.has_account(platform_account) {
-            return Err(OrganizationErrors::AccountNotLinked {
+            return Err(OrganizationError::AccountNotLinked {
                 account_id: platform_account.id,
                 organization_id: self.root.id,
             });
         }
 
-        let event = OrganizationEvents::RemovePlatformAccount {
+        let event = OrganizationEvent::RemovePlatformAccount {
             account_id: platform_account.id,
             organization_id: self.root.id,
         };
@@ -52,7 +52,7 @@ impl OrganizationAggregate {
     }
 }
 
-pub enum OrganizationEvents {
+pub enum OrganizationEvent {
     AddPlatformAccount {
         organization_id: OrganizationId,
         account: PlatformAccount,
@@ -67,16 +67,16 @@ pub enum OrganizationEvents {
     },
 }
 
-impl DomainEvent<Organization> for OrganizationEvents {
+impl DomainEvent<Organization> for OrganizationEvent {
     fn get_event_type(&self) -> &'static str {
         match self {
-            OrganizationEvents::AddPlatformAccount { .. } => {
+            OrganizationEvent::AddPlatformAccount { .. } => {
                 "Porti.SourceControl/Aggregates/Organization/AddPlatformAccount"
             }
-            OrganizationEvents::RemovePlatformAccount { .. } => {
+            OrganizationEvent::RemovePlatformAccount { .. } => {
                 "Porti.SourceControl/Aggregates/Organization/RemovePlatformAccount"
             }
-            OrganizationEvents::CreateOrganizationEvent { .. } => {
+            OrganizationEvent::CreateOrganizationEvent { .. } => {
                 "Porti.SourceControl/Aggregates/Organization/Create"
             }
         }
@@ -84,13 +84,13 @@ impl DomainEvent<Organization> for OrganizationEvents {
 
     fn apply(&self, aggregate: &mut Organization) {
         match self {
-            OrganizationEvents::AddPlatformAccount { account, .. } => {
+            OrganizationEvent::AddPlatformAccount { account, .. } => {
                 aggregate.platform_accounts.push(account.clone());
             }
-            OrganizationEvents::RemovePlatformAccount { account_id, .. } => {
+            OrganizationEvent::RemovePlatformAccount { account_id, .. } => {
                 aggregate.platform_accounts.retain(|a| a.id != *account_id)
             }
-            OrganizationEvents::CreateOrganizationEvent {
+            OrganizationEvent::CreateOrganizationEvent {
                 organization_id,
                 name,
             } => {
@@ -102,13 +102,13 @@ impl DomainEvent<Organization> for OrganizationEvents {
 
     fn get_aggregate_id(&self) -> &u64 {
         match self {
-            OrganizationEvents::AddPlatformAccount {
+            OrganizationEvent::AddPlatformAccount {
                 organization_id, ..
             } => &organization_id.0,
-            OrganizationEvents::RemovePlatformAccount {
+            OrganizationEvent::RemovePlatformAccount {
                 organization_id, ..
             } => &organization_id.0,
-            OrganizationEvents::CreateOrganizationEvent {
+            OrganizationEvent::CreateOrganizationEvent {
                 organization_id, ..
             } => &organization_id.0,
         }
@@ -116,7 +116,7 @@ impl DomainEvent<Organization> for OrganizationEvents {
 }
 
 #[derive(Debug, Error)]
-pub enum OrganizationErrors {
+pub enum OrganizationError {
     #[error("Account {account_id} is already added to organization {organization_id}")]
     AccountAlreadyAdded {
         account_id: PlatformAccountId,
@@ -129,4 +129,4 @@ pub enum OrganizationErrors {
     },
 }
 
-impl DomainError for OrganizationErrors {}
+impl DomainError for OrganizationError {}

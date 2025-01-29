@@ -8,7 +8,13 @@ importers:
 
   .: {}
 
+  apps/source_control: {}
+
   packages/adapters/source_control/persistence/event_store: {}
+
+  packages/adapters/source_control/presentation/rest: {}
+
+  packages/applications/source_control: {}
 
   packages/domains/source_control: {}
 

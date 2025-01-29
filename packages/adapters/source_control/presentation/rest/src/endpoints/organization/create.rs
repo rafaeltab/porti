@@ -11,7 +11,7 @@ pub struct CreateArguments {
 }
 
 pub async fn create_organization(
-    arguments: web::Query<CreateArguments>,
+    arguments: web::Json<CreateArguments>,
     command_handler: web::Data<CreateOrganizationCommandHandler>,
 ) -> HttpResponse {
     let command = CreateOrganizationCommand {

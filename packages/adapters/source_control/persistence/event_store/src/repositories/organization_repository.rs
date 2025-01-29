@@ -1,18 +1,19 @@
-use source_control_domain::entities::organization::Organization;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
+
 use async_trait::async_trait;
+use event_store_util::aggregates::organization::EventStoreOrganizationEvent;
+use event_store_util::from_recorded_event;
 use eventstore::{AppendToStreamOptions, Client, EventData, ReadStreamOptions};
 use log::error;
 use serde_json::json;
+use source_control_domain::entities::organization::Organization;
 use source_control_domain::{
     aggregates::{
         base::DomainEvent,
-        organization::{OrganizationAggregate, OrganizationEvents},
+        organization::{OrganizationAggregate, OrganizationEvent},
     },
-    entities::{
-        organization::OrganizationId,
-        platform::Platform,
-        platform_account::{PlatformAccount, PlatformAccountId},
-    },
+    entities::organization::OrganizationId,
     repositories::organization_repository::{
         CreateOrganizationError, GetOrganizationError, OrganizationRepository,
         SaveOrganizationError,
@@ -20,7 +21,13 @@ use source_control_domain::{
 };
 
 pub struct OrganizationRepositoryImpl {
-    client: Client,
+    pub client: Arc<Client>,
+}
+
+impl OrganizationRepositoryImpl {
+    pub fn new_generic(client: Arc<Client>) -> Arc<dyn OrganizationRepository> {
+        Arc::new(Self { client })
+    }
 }
 
 #[async_trait]
@@ -43,33 +50,12 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
                 let mut events = Vec::new();
                 while let Ok(Some(event)) = event_stream.next().await {
                     let original_event = event.get_original_event();
-                    let data = &original_event.data;
                     latest_revision = original_event.revision;
-                    match serde_json::from_slice::<serde_json::Value>(data) {
-                        Ok(parsed) => events.push((parsed, original_event.event_type.clone())),
-                        Err(err) => {
-                            error!(
-                                "Error while deserializing event from stream {}: {}",
-                                stream, err
-                            );
-                            return Err(GetOrganizationError::Unexpected);
-                        }
-                    }
+                    let ev = from_recorded_event::<EventStoreOrganizationEvent>(original_event);
+                    events.push(ev.0);
                 }
 
-                let typed_event_opts: Result<Vec<OrganizationEvents>, GetOrganizationError> =
-                    events
-                        .iter()
-                        .map(|event| OrganizationEvents::from_json(&event.0, &event.1))
-                        .map(|opt| opt.ok_or(GetOrganizationError::Unexpected))
-                        .collect();
-
-                let typed_events = typed_event_opts?;
-
-                Ok(OrganizationAggregate::from_events(
-                    typed_events,
-                    latest_revision,
-                ))
+                Ok(OrganizationAggregate::from_events(events, latest_revision))
             }
             _ => Err(GetOrganizationError::Connection),
         }
@@ -114,10 +100,13 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
     }
 
     async fn create(&self, name: String) -> Result<Organization, CreateOrganizationError> {
-        let id = OrganizationId(0);
+        let mut hasher = DefaultHasher::default();
+        name.hash(&mut hasher);
+
+        let id = OrganizationId(hasher.finish());
         let stream = OrganizationRepositoryImpl::get_stream_name(id);
 
-        let event = OrganizationEvents::CreateOrganizationEvent {
+        let event = OrganizationEvent::CreateOrganizationEvent {
             organization_id: id,
             name: name.clone(),
         };
@@ -170,13 +159,12 @@ where
     Self: Sized,
 {
     fn to_event_data(&self) -> Option<EventData>;
-    fn from_json(value: &serde_json::Value, event_type: &str) -> Option<Self>;
 }
 
-impl DomainEventJson for OrganizationEvents {
+impl DomainEventJson for OrganizationEvent {
     fn to_event_data(&self) -> Option<EventData> {
         let json = match self {
-            OrganizationEvents::AddPlatformAccount {
+            OrganizationEvent::AddPlatformAccount {
                 account,
                 organization_id,
             } => json!({
@@ -189,7 +177,7 @@ impl DomainEventJson for OrganizationEvents {
                     }
                 }
             }),
-            OrganizationEvents::RemovePlatformAccount {
+            OrganizationEvent::RemovePlatformAccount {
                 account_id,
                 organization_id,
             } => json!({
@@ -198,7 +186,7 @@ impl DomainEventJson for OrganizationEvents {
                     "id": account_id.0
                 }
             }),
-            OrganizationEvents::CreateOrganizationEvent {
+            OrganizationEvent::CreateOrganizationEvent {
                 organization_id,
                 name,
             } => json!({
@@ -213,47 +201,6 @@ impl DomainEventJson for OrganizationEvents {
                 error!("{}", err);
                 None
             }
-        }
-    }
-
-    fn from_json(value: &serde_json::Value, event_type: &str) -> Option<Self> {
-        match event_type {
-            "Porti.SourceControl/Aggregates/Organization/AddPlatformAccount/1" => {
-                let organization_id = &value["organization_id"].as_u64()?;
-                let account_id = &value["account"]["id"].as_u64()?;
-                let account_name = &value["account"]["name"].as_str()?;
-                let platform_name = &value["account"]["platform"]["name"].as_str()?;
-
-                Some(OrganizationEvents::AddPlatformAccount {
-                    organization_id: OrganizationId(*organization_id),
-                    account: PlatformAccount {
-                        id: PlatformAccountId(*account_id),
-                        name: account_name.to_string(),
-                        platform: Platform {
-                            name: platform_name.to_string(),
-                        },
-                    },
-                })
-            }
-            "Porti.SourceControl/Aggregates/Organization/RemovePlatformAccount/1" => {
-                let organization_id = &value["organization_id"].as_u64()?;
-                let account_id = &value["account"]["id"].as_u64()?;
-
-                Some(OrganizationEvents::RemovePlatformAccount {
-                    account_id: PlatformAccountId(*account_id),
-                    organization_id: OrganizationId(*organization_id),
-                })
-            }
-            "Porti.SourceControl/Aggregates/Organization/Create/1" => {
-                let organization_id = &value["organization_id"].as_u64()?;
-                let name = &value["name"].as_str()?;
-
-                Some(OrganizationEvents::CreateOrganizationEvent {
-                    organization_id: OrganizationId(*organization_id),
-                    name: name.to_string(),
-                })
-            }
-            _ => None,
         }
     }
 }
