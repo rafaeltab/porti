@@ -2,11 +2,15 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::{
-    aggregates::organization::OrganizationAggregate, entities::organization::{Organization, OrganizationId},
+    aggregates::organization::{OrganizationAggregate, OrganizationEvent},
+    entities::organization::{Organization, OrganizationId},
 };
 
 #[async_trait]
 pub trait OrganizationRepository {
+    async fn get_log(&self, organization_id: OrganizationId)
+        -> Result<Box<[OrganizationEvent]>, GetOrganizationLogError>;
+
     async fn get(
         &self,
         organization_id: OrganizationId,
@@ -15,6 +19,16 @@ pub trait OrganizationRepository {
     async fn save(&self, organization: OrganizationAggregate) -> Result<(), SaveOrganizationError>;
 
     async fn create(&self, name: String) -> Result<Organization, CreateOrganizationError>;
+}
+
+#[derive(Error, Debug)]
+pub enum GetOrganizationLogError {
+    #[error("Organization with {organization_id} not found.")]
+    NotFound { organization_id: OrganizationId },
+    #[error("Connecting to the server failed")]
+    Connection,
+    #[error("Unexpected error")]
+    Unexpected,
 }
 
 #[derive(Error, Debug)]

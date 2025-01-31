@@ -5,16 +5,16 @@ use actix_web::{
     App, HttpServer,
 };
 use log::{info, LevelFilter};
-use source_control_application::commands::{
+use source_control_application::{commands::{
     add_platform_account::AddPlatformAccountCommandHandler,
     create_organization::CreateOrganizationCommandHandler,
-};
+}, queries::get_organization_log::GetOrganizationLogQueryHandler};
 use source_control_application::queries::get_organization::GetOrganizationQueryHandler;
 use source_control_domain::factories::platform_account::PlatformAccountFactory;
 use source_control_event_store_interface::subscribers::organization_subscriber::OrganizationSubscriber;
 use source_control_event_store_persistence_adapter::repositories::organization_repository::OrganizationRepositoryImpl;
 use source_control_postgres_persistence_adapter::projectors::organization::OrganizationProjector;
-use source_control_rest_interface::endpoints::organization::{create::create_organization, platform_account::add::add_platform_account};
+use source_control_rest_interface::endpoints::organization::{create::create_organization, get_log::get_organization_log, platform_account::add::add_platform_account};
 use source_control_rest_interface::endpoints::organization::get::get_organization;
 use structured_logger::{async_json::new_writer, Builder};
 use tokio_postgres::NoTls;
@@ -83,8 +83,12 @@ async fn main() -> std::result::Result<(), std::io::Error> {
             .app_data(Data::new(GetOrganizationQueryHandler {
                 repository: repo.clone(),
             }))
+            .app_data(Data::new(GetOrganizationLogQueryHandler {
+                repository: repo.clone(),
+            }))
             .route("/organization", web::post().to(create_organization))
             .route("/organization/{organization_id}", web::get().to(get_organization))
+            .route("/organization/{organization_id}/log", web::get().to(get_organization_log))
             .route("/organization/{organization_id}/platform-account", web::post().to(add_platform_account))
     })
     .bind(("0.0.0.0", 8080))?

@@ -8,6 +8,7 @@ use eventstore::{AppendToStreamOptions, Client, EventData, ReadStreamOptions};
 use log::error;
 use serde_json::json;
 use source_control_domain::entities::organization::Organization;
+use source_control_domain::repositories::organization_repository::GetOrganizationLogError;
 use source_control_domain::{
     aggregates::{
         base::DomainEvent,
@@ -32,6 +33,47 @@ impl OrganizationRepositoryImpl {
 
 #[async_trait]
 impl OrganizationRepository for OrganizationRepositoryImpl {
+    async fn get_log(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<Box<[OrganizationEvent]>, GetOrganizationLogError> {
+        let stream = OrganizationRepositoryImpl::get_stream_name(organization_id);
+
+        let read_stream_result = self
+            .client
+            .read_stream(stream.clone(), &ReadStreamOptions::default())
+            .await;
+
+        match read_stream_result {
+            Ok(mut event_stream) => {
+                let mut events = Vec::new();
+                while let Ok(Some(event)) = event_stream.next().await {
+                    let original_event = event.get_original_event();
+                    let ev = from_recorded_event::<EventStoreOrganizationEvent>(original_event);
+                    events.push(ev.0);
+                }
+
+                if events.is_empty() {
+                    return Err(GetOrganizationLogError::NotFound { organization_id });
+                }
+
+                Ok(events.into())
+            }
+            Err(err) => match err {
+                eventstore::Error::ConnectionClosed => Err(GetOrganizationLogError::Connection),
+                eventstore::Error::Grpc { .. } => Err(GetOrganizationLogError::Connection),
+                eventstore::Error::GrpcConnectionError(..) => {
+                    Err(GetOrganizationLogError::Connection)
+                }
+                eventstore::Error::AccessDenied => Err(GetOrganizationLogError::Connection),
+                eventstore::Error::DeadlineExceeded => Err(GetOrganizationLogError::Connection),
+                eventstore::Error::ResourceNotFound => {
+                    Err(GetOrganizationLogError::NotFound { organization_id })
+                }
+                _ => Err(GetOrganizationLogError::Unexpected),
+            },
+        }
+    }
     async fn get(
         &self,
         organization_id: OrganizationId,
