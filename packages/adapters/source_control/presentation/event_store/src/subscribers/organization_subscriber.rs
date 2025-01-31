@@ -7,7 +7,7 @@ use eventstore::{
     Client, Error, PersistentSubscriptionToAllOptions, SubscribeToPersistentSubscriptionOptions,
     SubscriptionFilter,
 };
-use log::error;
+use log::{error, info};
 use source_control_domain::aggregates::organization::OrganizationEvent;
 use source_control_postgres_persistence_adapter::projectors::Projector;
 
@@ -27,6 +27,7 @@ impl<TProjector: Projector<OrganizationEvent>> OrganizationSubscriber<TProjector
             .create_persistent_subscription_to_all(
                 Self::subscription_name(),
                 &PersistentSubscriptionToAllOptions::default()
+                    .start_from(eventstore::StreamPosition::Start)
                     .filter(
                         SubscriptionFilter::on_stream_name()
                             .add_prefix("Porti.SourceControl/Aggregates/Organization/"),
@@ -55,10 +56,13 @@ impl<TProjector: Projector<OrganizationEvent>> OrganizationSubscriber<TProjector
 
         loop {
             let event = sub.next().await?;
+            info!("Received event from event store");
 
             let organization_event = from_resolved_event::<EventStoreOrganizationEvent>(&event);
-            if (self.projector.project(organization_event.0).await).is_err() {
-                error!("Error occurred while running projection")
+            let res = self.projector.project(organization_event.0).await;
+            if let Err(err) = res {
+                let error_message = format!("{:?}", err);
+                error!("Error occurred while running projection {}", error_message)
             };
             sub.ack(event).await?;
         }

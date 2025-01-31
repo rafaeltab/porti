@@ -55,9 +55,23 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
                     events.push(ev.0);
                 }
 
+                if events.is_empty() {
+                    return Err(GetOrganizationError::NotFound { organization_id });
+                }
+
                 Ok(OrganizationAggregate::from_events(events, latest_revision))
             }
-            _ => Err(GetOrganizationError::Connection),
+            Err(err) => match err {
+                eventstore::Error::ConnectionClosed => Err(GetOrganizationError::Connection),
+                eventstore::Error::Grpc { .. } => Err(GetOrganizationError::Connection),
+                eventstore::Error::GrpcConnectionError(..) => Err(GetOrganizationError::Connection),
+                eventstore::Error::AccessDenied => Err(GetOrganizationError::Connection),
+                eventstore::Error::DeadlineExceeded => Err(GetOrganizationError::Connection),
+                eventstore::Error::ResourceNotFound => {
+                    Err(GetOrganizationError::NotFound { organization_id })
+                }
+                _ => Err(GetOrganizationError::Unexpected),
+            },
         }
     }
 

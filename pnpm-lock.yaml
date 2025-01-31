@@ -12,6 +12,10 @@ importers:
 
   packages/adapters/source_control/persistence/event_store: {}
 
+  packages/adapters/source_control/persistence/postgres: {}
+
+  packages/adapters/source_control/presentation/event_store: {}
+
   packages/adapters/source_control/presentation/rest: {}
 
   packages/applications/source_control: {}
@@ -19,3 +23,5 @@ importers:
   packages/domains/source_control: {}
 
   packages/utils/derive_id: {}
+
+  packages/utils/event_store: {}

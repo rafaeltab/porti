@@ -5,25 +5,24 @@ use source_control_application::queries::get_organization::{
     GetOrganizationQuery, GetOrganizationQueryError, GetOrganizationQueryHandler,
 };
 
+use crate::serialization::organization::organization_to_json;
+
 #[derive(Deserialize)]
 pub struct GetArguments {
-    id: u64,
+    organization_id: u64,
 }
 
 pub async fn get_organization(
     arguments: web::Path<GetArguments>,
     query_handler: web::Data<GetOrganizationQueryHandler>,
 ) -> HttpResponse {
-    let command = GetOrganizationQuery { id: arguments.id };
+    let command = GetOrganizationQuery { id: arguments.organization_id };
 
     let handler = query_handler.get_ref();
     let result = handler.handle(command).await;
 
     match result {
-        Ok(organization) => HttpResponse::Ok().json(json!({
-            "id": organization.id.0,
-            "name": organization.name,
-        })),
+        Ok(organization) => HttpResponse::Ok().json(organization_to_json(&organization)),
         Err(GetOrganizationQueryError::NotFound { .. }) => HttpResponse::NotFound().json(json!({
             "message": "Organization not found"
         })),

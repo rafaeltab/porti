@@ -5,6 +5,8 @@ use source_control_application::commands::create_organization::{
     CreateOrganizationCommand, CreateOrganizationCommandError, CreateOrganizationCommandHandler,
 };
 
+use crate::serialization::organization::organization_to_json;
+
 #[derive(Deserialize)]
 pub struct CreateArguments {
     name: String,
@@ -22,10 +24,7 @@ pub async fn create_organization(
     let result = handler.handle(command).await;
 
     match result {
-        Ok(organization) => HttpResponse::Created().json(json!({
-            "id": organization.id.0,
-            "name": organization.name,
-        })),
+        Ok(organization) => HttpResponse::Created().json(organization_to_json(&organization)),
         Err(CreateOrganizationCommandError::Conflict) => HttpResponse::Conflict().json(json!({
             "message": "A data conflict happened while creating the organization"
         })),

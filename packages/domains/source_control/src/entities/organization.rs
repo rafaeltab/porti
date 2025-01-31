@@ -5,7 +5,7 @@ use super::platform_account::PlatformAccount;
 #[derive(DomainIdentity, Default)]
 pub struct OrganizationId(pub u64);
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Organization {
     pub id: OrganizationId,
     pub name: String,

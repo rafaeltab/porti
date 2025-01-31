@@ -2049,6 +2049,7 @@ dependencies = [
  "eventstore",
  "log",
  "source_control_application",
+ "source_control_domain",
  "source_control_event_store_interface",
  "source_control_event_store_persistence_adapter",
  "source_control_postgres_persistence_adapter",
@@ -2126,6 +2127,7 @@ dependencies = [
  "serde",
  "serde_json",
  "source_control_application",
+ "source_control_domain",
 ]
 
 [[package]]

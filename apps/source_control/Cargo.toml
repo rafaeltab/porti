@@ -7,6 +7,7 @@ edition = "2021"
 source_control_rest_interface = {path="../../packages/adapters/source_control/presentation/rest"}
 source_control_event_store_interface = {path="../../packages/adapters/source_control/presentation/event_store"}
 source_control_application = {path="../../packages/applications/source_control"}
+source_control_domain = {path="../../packages/domains/source_control"}
 source_control_event_store_persistence_adapter = {path="../../packages/adapters/source_control/persistence/event_store"}
 source_control_postgres_persistence_adapter = {path="../../packages/adapters/source_control/persistence/postgres"}
 actix-web = "4.9.0"
