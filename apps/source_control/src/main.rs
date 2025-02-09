@@ -4,7 +4,7 @@ use actix_web::{
     web::{self, Data},
     App, HttpServer,
 };
-use source_control_application::queries::get_organization::GetOrganizationQueryHandler;
+use source_control_application::{commands::remove_platform_account::RemovePlatformAccountCommandHandler, queries::get_organization::GetOrganizationQueryHandler};
 use source_control_application::{
     commands::{
         add_platform_account::AddPlatformAccountCommandHandler,
@@ -16,7 +16,7 @@ use source_control_domain::factories::platform_account::PlatformAccountFactory;
 use source_control_event_store_interface::subscribers::organization_subscriber::OrganizationSubscriber;
 use source_control_event_store_persistence_adapter::repositories::organization_repository::OrganizationRepositoryImpl;
 use source_control_postgres_persistence_adapter::{projectors::organization::OrganizationProjector, queries::get_organizations::GetOrganizationsQueryHandler};
-use source_control_rest_interface::endpoints::organization::{get::get_organization, get_all::get_organizations};
+use source_control_rest_interface::endpoints::organization::{get::get_organization, get_all::get_organizations, platform_account::remove::remove_platform_account};
 use source_control_rest_interface::endpoints::organization::{
     create::create_organization, get_log::get_organization_log,
     platform_account::add::add_platform_account,
@@ -89,6 +89,9 @@ async fn main() -> std::result::Result<(), std::io::Error> {
                 repository: repo.clone(),
                 platform_account_factory: platform_account_factory_arc.clone(),
             }))
+            .app_data(Data::new(RemovePlatformAccountCommandHandler {
+                repository: repo.clone(),
+            }))
             .app_data(Data::new(GetOrganizationQueryHandler {
                 repository: repo.clone(),
             }))
@@ -109,6 +112,10 @@ async fn main() -> std::result::Result<(), std::io::Error> {
             .route(
                 "/organization/{organization_id}/platform-account",
                 web::post().to(add_platform_account),
+            )
+            .route(
+                "/organization/{organization_id}/platform-account/{platform_account_id}",
+                web::delete().to(remove_platform_account),
             )
     })
     .bind(("0.0.0.0", 8080))?
