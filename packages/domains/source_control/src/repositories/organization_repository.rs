@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -7,7 +9,7 @@ use crate::{
 };
 
 #[async_trait]
-pub trait OrganizationRepository {
+pub trait OrganizationRepository: Debug {
     async fn get_log(&self, organization_id: OrganizationId)
         -> Result<Box<[OrganizationEvent]>, GetOrganizationLogError>;
 

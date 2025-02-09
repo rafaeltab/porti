@@ -9,19 +9,23 @@ use source_control_domain::{
     },
 };
 use thiserror::Error;
+use tracing::instrument;
 
+#[derive(Debug)]
 pub struct AddPlatformAccountCommand {
     pub organization_id: u64,
     pub name: String,
     pub platform_name: String,
 }
 
+#[derive(Debug)]
 pub struct AddPlatformAccountCommandHandler {
     pub repository: Arc<dyn OrganizationRepository>,
     pub platform_account_factory: Arc<PlatformAccountFactory>,
 }
 
 impl AddPlatformAccountCommandHandler {
+    #[instrument(skip(self))]
     pub async fn handle(
         &self,
         command: AddPlatformAccountCommand,
@@ -45,7 +49,7 @@ impl AddPlatformAccountCommandHandler {
 
         let platform_account = self
             .platform_account_factory
-            .create(command.name, command.platform_name);
+            .create(command.name, command.platform_name, &aggregate.root);
 
         match aggregate.add_platform_account(platform_account) {
             Ok(_) => Ok(()),

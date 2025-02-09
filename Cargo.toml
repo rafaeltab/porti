@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = [
+    "apps/source_control",
+    "benchmarks",
+    "packages/adapters/source_control/persistence/event_store",
+    "packages/adapters/source_control/persistence/postgres",
+    "packages/adapters/source_control/presentation/event_store",
+    "packages/adapters/source_control/presentation/rest",
+    "packages/applications/source_control",
+    "packages/domains/source_control",
+    "packages/utils/derive_id",
+    "packages/utils/event_store",
+    "packages/utils/tracing"
+]
+
+[workspace.dependencies]
+tracing = "0.1.41"
+debug-ignore = "1.0.5"
+tokio-postgres = "0.7.12"

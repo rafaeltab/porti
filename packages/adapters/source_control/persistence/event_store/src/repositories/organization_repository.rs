@@ -1,3 +1,4 @@
+use std::fmt;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
@@ -5,7 +6,6 @@ use async_trait::async_trait;
 use event_store_util::aggregates::organization::EventStoreOrganizationEvent;
 use event_store_util::from_recorded_event;
 use eventstore::{AppendToStreamOptions, Client, EventData, ReadStreamOptions};
-use log::error;
 use serde_json::json;
 use source_control_domain::entities::organization::Organization;
 use source_control_domain::repositories::organization_repository::GetOrganizationLogError;
@@ -20,9 +20,16 @@ use source_control_domain::{
         SaveOrganizationError,
     },
 };
+use tracing::{error, instrument, span, Instrument, Level};
 
 pub struct OrganizationRepositoryImpl {
     pub client: Arc<Client>,
+}
+
+impl fmt::Debug for OrganizationRepositoryImpl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OrganizationRepositoryImpl").finish()
+    }
 }
 
 impl OrganizationRepositoryImpl {
@@ -33,15 +40,18 @@ impl OrganizationRepositoryImpl {
 
 #[async_trait]
 impl OrganizationRepository for OrganizationRepositoryImpl {
+    #[instrument(skip(self))]
     async fn get_log(
         &self,
         organization_id: OrganizationId,
     ) -> Result<Box<[OrganizationEvent]>, GetOrganizationLogError> {
         let stream = OrganizationRepositoryImpl::get_stream_name(organization_id);
 
+        let read_span = span!(Level::INFO, "event_store_read_stream");
         let read_stream_result = self
             .client
             .read_stream(stream.clone(), &ReadStreamOptions::default())
+            .instrument(read_span)
             .await;
 
         match read_stream_result {
@@ -74,15 +84,19 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
             },
         }
     }
+
+    #[instrument(skip(self))]
     async fn get(
         &self,
         organization_id: OrganizationId,
     ) -> Result<OrganizationAggregate, GetOrganizationError> {
         let stream = OrganizationRepositoryImpl::get_stream_name(organization_id);
 
+        let read_span = span!(Level::INFO, "event_store_read_stream");
         let read_stream_result = self
             .client
             .read_stream(stream.clone(), &ReadStreamOptions::default())
+            .instrument(read_span)
             .await;
 
         let mut latest_revision: u64 = 0;
@@ -117,6 +131,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         }
     }
 
+    #[instrument(skip(self, organization))]
     async fn save(&self, organization: OrganizationAggregate) -> Result<(), SaveOrganizationError> {
         let events_opt: Result<Vec<EventData>, SaveOrganizationError> = organization
             .draft_events
@@ -129,6 +144,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
 
         let stream = OrganizationRepositoryImpl::get_stream_name(organization.root.id);
 
+        let write_span = span!(Level::INFO, "event_store_append_stream");
         let write_result = self
             .client
             .append_to_stream(
@@ -138,6 +154,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
                 ),
                 events,
             )
+            .instrument(write_span)
             .await;
 
         match write_result {
@@ -155,6 +172,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         }
     }
 
+    #[instrument]
     async fn create(&self, name: String) -> Result<Organization, CreateOrganizationError> {
         let mut hasher = DefaultHasher::default();
         name.hash(&mut hasher);
@@ -171,6 +189,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
             .to_event_data()
             .ok_or(CreateOrganizationError::Unexpected)?;
 
+        let write_span = span!(Level::INFO, "event_store_append_stream");
         let write_result = self
             .client
             .append_to_stream(
@@ -179,6 +198,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
                     .expected_revision(eventstore::ExpectedRevision::NoStream),
                 vec![event_data],
             )
+            .instrument(write_span)
             .await;
 
         match write_result {

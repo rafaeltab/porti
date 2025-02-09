@@ -3,6 +3,15 @@ use source_control_domain::{
     aggregates::{base::DomainEvent, organization::OrganizationEvent},
     entities::{organization::Organization, platform_account::PlatformAccount},
 };
+use source_control_postgres_persistence_adapter::queries::get_organizations::OrganizationResult;
+
+pub fn organization_result_to_json(organization: &OrganizationResult) -> serde_json::Value {
+    json!({
+        "id": organization.id.0,
+        "name": organization.name,
+        "platform_account_count": organization.paltform_account_count,
+    })
+}
 
 pub fn organization_to_json(organization: &Organization) -> serde_json::Value {
     let platform_accounts: Vec<serde_json::Value> = organization

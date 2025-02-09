@@ -4,14 +4,16 @@ use serde_json::json;
 use source_control_application::queries::get_organization::{
     GetOrganizationQuery, GetOrganizationQueryError, GetOrganizationQueryHandler,
 };
+use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct GetArguments {
     organization_id: u64,
 }
 
+#[instrument]
 pub async fn get_organization(
     arguments: web::Path<GetArguments>,
     query_handler: web::Data<GetOrganizationQueryHandler>,

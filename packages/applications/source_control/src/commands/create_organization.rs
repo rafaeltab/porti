@@ -10,6 +10,7 @@ pub struct CreateOrganizationCommand {
     pub name: String,
 }
 
+#[derive(Debug)]
 pub struct CreateOrganizationCommandHandler {
     pub repository: Arc<dyn OrganizationRepository>,
 }

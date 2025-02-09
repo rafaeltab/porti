@@ -4,62 +4,70 @@ use actix_web::{
     web::{self, Data},
     App, HttpServer,
 };
-use log::{info, LevelFilter};
-use source_control_application::{commands::{
-    add_platform_account::AddPlatformAccountCommandHandler,
-    create_organization::CreateOrganizationCommandHandler,
-}, queries::get_organization_log::GetOrganizationLogQueryHandler};
 use source_control_application::queries::get_organization::GetOrganizationQueryHandler;
+use source_control_application::{
+    commands::{
+        add_platform_account::AddPlatformAccountCommandHandler,
+        create_organization::CreateOrganizationCommandHandler,
+    },
+    queries::get_organization_log::GetOrganizationLogQueryHandler,
+};
 use source_control_domain::factories::platform_account::PlatformAccountFactory;
 use source_control_event_store_interface::subscribers::organization_subscriber::OrganizationSubscriber;
 use source_control_event_store_persistence_adapter::repositories::organization_repository::OrganizationRepositoryImpl;
-use source_control_postgres_persistence_adapter::projectors::organization::OrganizationProjector;
-use source_control_rest_interface::endpoints::organization::{create::create_organization, get_log::get_organization_log, platform_account::add::add_platform_account};
-use source_control_rest_interface::endpoints::organization::get::get_organization;
-use structured_logger::{async_json::new_writer, Builder};
-use tokio_postgres::NoTls;
+use source_control_postgres_persistence_adapter::{projectors::organization::OrganizationProjector, queries::get_organizations::GetOrganizationsQueryHandler};
+use source_control_rest_interface::endpoints::organization::{get::get_organization, get_all::get_organizations};
+use source_control_rest_interface::endpoints::organization::{
+    create::create_organization, get_log::get_organization_log,
+    platform_account::add::add_platform_account,
+};
+use startup::{eventstore::setup_eventstore, postgres::setup_postgres};
+use tracing::{info, instrument};
+use tracing_actix_web::TracingLogger;
+use tracing_core::LevelFilter;
+use tracing_subscriber::EnvFilter;
+use tracing_util::{setup_tracing, shutdown_tracing};
 
-#[actix_web::main]
+mod startup;
+
+static SUBSCRIPTION_NAME: &str = "organization-projector-002";
+
+#[tokio::main]
+#[instrument]
 async fn main() -> std::result::Result<(), std::io::Error> {
-    Builder::with_level(LevelFilter::Debug.as_str())
-        .with_target_writer("*", new_writer(tokio::io::stdout()))
-        .init();
+    let env_filter = EnvFilter::from_default_env()
+        .add_directive(LevelFilter::INFO.into())
+        .add_directive("tokio_postgres=trace".parse().expect(""))
+        .add_directive("eventstore=trace".parse().expect(""))
+        .add_directive("tokio_postgres::connection=info".parse().expect(""));
 
+    if let Err(err) = setup_tracing("source_control".to_string(), env_filter) {
+        println!("Failed to setup tracing, {:?}", err);
+        panic!();
+    }
+
+    println!("Starting");
     info!("Starting");
-    info!("Connecting to event store");
-    let eventstore_client = eventstore::Client::new(
-        "esdb://localhost:2113?tls=false"
-            .parse()
-            .expect("Could not connect to event store"),
-    )
-    .expect("Failed to connect to event store");
-    let eventstore_client_arc = Arc::new(eventstore_client);
-    info!("Connecting to postgres");
-    let (postgres_client, postgres_connection) = tokio_postgres::Config::default()
-        .user("source_control")
-        .host("localhost")
-        .password("S3cret")
-        .connect(NoTls)
-        .await
-        .expect("Failed to connect to postgres");
-    let postgres_client_arc = Arc::new(postgres_client);
 
-    info!("Keeping postgres connection alive");
-    tokio::spawn(async move {
-        if let Err(e) = postgres_connection.await {
-            eprintln!("connection error: {}", e);
-        }
-    });
+    let eventstore_client_arc = setup_eventstore();
+    let postgres_client_arc = setup_postgres().await;
+
     let projector = OrganizationProjector {
-        client: postgres_client_arc,
+        client: postgres_client_arc.clone(),
     };
     let subscriber = OrganizationSubscriber {
         client: eventstore_client_arc.clone(),
         projector,
+        worker_id: 1,
+        subscription_name: SUBSCRIPTION_NAME.to_string(),
     };
 
     let platform_account_factory = PlatformAccountFactory {};
     let platform_account_factory_arc = Arc::new(platform_account_factory);
+
+    let get_organizations_query = GetOrganizationsQueryHandler {
+        client: postgres_client_arc.clone()
+    };
 
     info!("Starting subscriber");
     subscriber
@@ -69,10 +77,11 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     tokio::spawn(async move { subscriber.subscribe().await });
 
     info!("Starting server");
-    HttpServer::new(move || {
+    let val = HttpServer::new(move || {
         let repo = OrganizationRepositoryImpl::new_generic(eventstore_client_arc.clone());
 
         App::new()
+            .wrap(TracingLogger::default())
             .app_data(Data::new(CreateOrganizationCommandHandler {
                 repository: repo.clone(),
             }))
@@ -83,15 +92,30 @@ async fn main() -> std::result::Result<(), std::io::Error> {
             .app_data(Data::new(GetOrganizationQueryHandler {
                 repository: repo.clone(),
             }))
+            .app_data(Data::new(get_organizations_query.clone()))
             .app_data(Data::new(GetOrganizationLogQueryHandler {
                 repository: repo.clone(),
             }))
             .route("/organization", web::post().to(create_organization))
-            .route("/organization/{organization_id}", web::get().to(get_organization))
-            .route("/organization/{organization_id}/log", web::get().to(get_organization_log))
-            .route("/organization/{organization_id}/platform-account", web::post().to(add_platform_account))
+            .route("/organization", web::get().to(get_organizations))
+            .route(
+                "/organization/{organization_id}",
+                web::get().to(get_organization),
+            )
+            .route(
+                "/organization/{organization_id}/log",
+                web::get().to(get_organization_log),
+            )
+            .route(
+                "/organization/{organization_id}/platform-account",
+                web::post().to(add_platform_account),
+            )
     })
     .bind(("0.0.0.0", 8080))?
     .run()
-    .await
+    .await;
+
+    shutdown_tracing();
+
+    val
 }

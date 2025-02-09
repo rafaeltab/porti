@@ -4,14 +4,16 @@ use serde_json::json;
 use source_control_application::commands::create_organization::{
     CreateOrganizationCommand, CreateOrganizationCommandError, CreateOrganizationCommandHandler,
 };
+use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct CreateArguments {
     name: String,
 }
 
+#[instrument]
 pub async fn create_organization(
     arguments: web::Json<CreateArguments>,
     command_handler: web::Data<CreateOrganizationCommandHandler>,

@@ -2,25 +2,27 @@ use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
 use source_control_application::commands::add_platform_account::{AddPlatformAccountCommand, AddPlatformAccountCommandError, AddPlatformAccountCommandHandler};
+use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct AddArguments {
     name: String,
     platform: PlatformArgument,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct PlatformArgument {
     name: String
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct AddPath {
     organization_id: String
 }
 
+#[instrument]
 pub async fn add_platform_account(
     arguments: web::Json<AddArguments>,
     path: web::Path<AddPath>,

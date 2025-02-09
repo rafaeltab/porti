@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 source_control_domain = {path="../../domains/source_control"}
 thiserror = "2.0.11"
+tracing ={workspace = true}
+tokio-postgres = {workspace = true}
 
 [dev-dependencies]
 clippy = "0.0.302"

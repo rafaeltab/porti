@@ -11,6 +11,7 @@ pub struct GetOrganizationLogQuery {
     pub id: u64,
 }
 
+#[derive(Debug)]
 pub struct GetOrganizationLogQueryHandler {
     pub repository: Arc<dyn OrganizationRepository>,
 }

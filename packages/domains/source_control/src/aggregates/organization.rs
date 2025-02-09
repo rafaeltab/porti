@@ -32,17 +32,17 @@ impl OrganizationAggregate {
 
     pub fn remove_platform_account(
         &mut self,
-        platform_account: &PlatformAccount,
+        platform_account_id: PlatformAccountId,
     ) -> Result<(), OrganizationError> {
-        if !self.root.has_account(platform_account) {
+        if !self.root.has_account_with_id(platform_account_id) {
             return Err(OrganizationError::AccountNotLinked {
-                account_id: platform_account.id,
+                account_id: platform_account_id,
                 organization_id: self.root.id,
             });
         }
 
         let event = OrganizationEvent::RemovePlatformAccount {
-            account_id: platform_account.id,
+            account_id: platform_account_id,
             organization_id: self.root.id,
         };
 
@@ -52,6 +52,7 @@ impl OrganizationAggregate {
     }
 }
 
+#[derive(Debug)]
 pub enum OrganizationEvent {
     AddPlatformAccount {
         organization_id: OrganizationId,
