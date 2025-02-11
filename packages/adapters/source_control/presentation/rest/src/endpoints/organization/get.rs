@@ -18,7 +18,9 @@ pub async fn get_organization(
     arguments: web::Path<GetArguments>,
     query_handler: web::Data<GetOrganizationQueryHandler>,
 ) -> HttpResponse {
-    let command = GetOrganizationQuery { id: arguments.organization_id };
+    let command = GetOrganizationQuery {
+        id: arguments.organization_id,
+    };
 
     let handler = query_handler.get_ref();
     let result = handler.handle(command).await;

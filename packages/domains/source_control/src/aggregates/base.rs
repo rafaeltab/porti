@@ -30,7 +30,7 @@ where
         self.draft_events.push(event);
     }
 
-    pub fn from_events(events: Vec<TEvent>, latest_revision: u64) -> Self{
+    pub fn from_events(events: Vec<TEvent>, latest_revision: u64) -> Self {
         let mut initial = TRoot::default();
 
         for event in &events {

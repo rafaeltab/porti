@@ -29,7 +29,10 @@ async fn connect_postgres() -> (Client, Connection<Socket, NoTlsStream>) {
     match res {
         Ok(client_and_connection) => client_and_connection,
         Err(err) => {
-            error!(error = format!("{:?}", err), "Error while connecting to postgres server");
+            error!(
+                error = format!("{:?}", err),
+                "Error while connecting to postgres server"
+            );
 
             panic!();
         }

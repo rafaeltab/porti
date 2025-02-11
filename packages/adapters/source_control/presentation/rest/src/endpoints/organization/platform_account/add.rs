@@ -1,7 +1,9 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use source_control_application::commands::add_platform_account::{AddPlatformAccountCommand, AddPlatformAccountCommandError, AddPlatformAccountCommandHandler};
+use source_control_application::commands::add_platform_account::{
+    AddPlatformAccountCommand, AddPlatformAccountCommandError, AddPlatformAccountCommandHandler,
+};
 use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
@@ -14,12 +16,12 @@ pub struct AddArguments {
 
 #[derive(Deserialize, Debug)]
 pub struct PlatformArgument {
-    name: String
+    name: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct AddPath {
-    organization_id: String
+    organization_id: String,
 }
 
 #[instrument]
@@ -28,7 +30,6 @@ pub async fn add_platform_account(
     path: web::Path<AddPath>,
     command_handler: web::Data<AddPlatformAccountCommandHandler>,
 ) -> HttpResponse {
-
     let parse_result = path.organization_id.parse::<u64>();
     if parse_result.is_err() {
         return HttpResponse::BadRequest().json(json!({
@@ -60,13 +61,15 @@ pub async fn add_platform_account(
             .json(json!({
                 "message": "Something went unexpectedly wrong"
             })),
-        Err(AddPlatformAccountCommandError::AccountAlreadyAdded) => HttpResponse::Conflict()
-            .json(json!({
+        Err(AddPlatformAccountCommandError::AccountAlreadyAdded) => {
+            HttpResponse::Conflict().json(json!({
                 "message": "Account was already added to this organization"
-            })),
-        Err(AddPlatformAccountCommandError::NotFound { .. }) => HttpResponse::NotFound()
-            .json(json!({
+            }))
+        }
+        Err(AddPlatformAccountCommandError::NotFound { .. }) => {
+            HttpResponse::NotFound().json(json!({
                 "message": "Organization not found"
-            })),
+            }))
+        }
     }
 }

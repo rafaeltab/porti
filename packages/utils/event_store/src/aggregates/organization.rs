@@ -1,4 +1,11 @@
-use source_control_domain::{aggregates::organization::OrganizationEvent, entities::{organization::OrganizationId, platform::Platform, platform_account::{PlatformAccount, PlatformAccountId}}};
+use source_control_domain::{
+    aggregates::organization::OrganizationEvent,
+    entities::{
+        organization::OrganizationId,
+        platform::Platform,
+        platform_account::{PlatformAccount, PlatformAccountId},
+    },
+};
 
 use crate::FromJson;
 

@@ -1,2 +1,2 @@
-pub mod organization;
 pub mod base;
+pub mod organization;

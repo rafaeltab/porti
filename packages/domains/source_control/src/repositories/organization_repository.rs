@@ -10,8 +10,10 @@ use crate::{
 
 #[async_trait]
 pub trait OrganizationRepository: Debug {
-    async fn get_log(&self, organization_id: OrganizationId)
-        -> Result<Box<[OrganizationEvent]>, GetOrganizationLogError>;
+    async fn get_log(
+        &self,
+        organization_id: OrganizationId,
+    ) -> Result<Box<[OrganizationEvent]>, GetOrganizationLogError>;
 
     async fn get(
         &self,

@@ -22,10 +22,7 @@ pub async fn get_organizations(
     let page = arguments.page.unwrap_or(0);
     let page_size = arguments.page_size.unwrap_or(10);
 
-    let query = GetOrganizationsQuery {
-        page,
-        page_size,
-    };
+    let query = GetOrganizationsQuery { page, page_size };
 
     let handler = query_handler.get_ref();
     let result = handler.handle(query).await;

@@ -1,16 +1,18 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use source_control_application::commands::remove_platform_account::{RemovePlatformAccountCommand, RemovePlatformAccountCommandError, RemovePlatformAccountCommandHandler};
+use source_control_application::commands::remove_platform_account::{
+    RemovePlatformAccountCommand, RemovePlatformAccountCommandError,
+    RemovePlatformAccountCommandHandler,
+};
 use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
 
-
 #[derive(Deserialize, Debug)]
 pub struct RemovePath {
     organization_id: String,
-    platform_account_id: String
+    platform_account_id: String,
 }
 
 #[instrument]
@@ -61,9 +63,10 @@ pub async fn remove_platform_account(
             .json(json!({
                 "message": "Account not found"
             })),
-        Err(RemovePlatformAccountCommandError::OrganizationNotFound { .. }) => HttpResponse::NotFound()
-            .json(json!({
+        Err(RemovePlatformAccountCommandError::OrganizationNotFound { .. }) => {
+            HttpResponse::NotFound().json(json!({
                 "message": "Organization not found"
-            })),
+            }))
+        }
     }
 }

@@ -47,9 +47,11 @@ impl AddPlatformAccountCommandHandler {
             },
         }?;
 
-        let platform_account = self
-            .platform_account_factory
-            .create(command.name, command.platform_name, &aggregate.root);
+        let platform_account = self.platform_account_factory.create(
+            command.name,
+            command.platform_name,
+            &aggregate.root,
+        );
 
         match aggregate.add_platform_account(platform_account) {
             Ok(_) => Ok(()),
