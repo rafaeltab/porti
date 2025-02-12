@@ -1,6 +1,8 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use shaku_actix::InjectProvided;
+use source_control_application::module::ApplicationModule;
 use source_control_postgres_persistence_adapter::queries::get_organizations::{
     GetOrganizationsQuery, GetOrganizationsQueryError, GetOrganizationsQueryHandler,
 };
@@ -14,18 +16,17 @@ pub struct GetAllArguments {
     pub page_size: Option<i64>,
 }
 
-#[instrument]
+#[instrument(skip(query_handler))]
 pub async fn get_organizations(
     arguments: web::Query<GetAllArguments>,
-    query_handler: web::Data<GetOrganizationsQueryHandler>,
+    query_handler: InjectProvided<ApplicationModule, dyn GetOrganizationsQueryHandler>,
 ) -> HttpResponse {
     let page = arguments.page.unwrap_or(0);
     let page_size = arguments.page_size.unwrap_or(10);
 
     let query = GetOrganizationsQuery { page, page_size };
 
-    let handler = query_handler.get_ref();
-    let result = handler.handle(query).await;
+    let result = query_handler.handle(query).await;
 
     match result {
         Ok(organizations) => {

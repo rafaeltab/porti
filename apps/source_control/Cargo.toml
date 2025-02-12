@@ -31,4 +31,5 @@ tracing_util = {path="../../packages/utils/tracing"}
 actix-web = "4.9.0"
 eventstore = "3.0.0"
 tokio-postgres = {workspace = true}
+shaku = {workspace = true}
 

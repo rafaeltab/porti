@@ -1,16 +1,28 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
+use shaku::{Interface, Provider};
+
 use crate::entities::{
     organization::Organization,
     platform::Platform,
     platform_account::{PlatformAccount, PlatformAccountId},
 };
 
-#[derive(Default, Debug)]
-pub struct PlatformAccountFactory {}
+pub trait PlatformAccountFactory: Interface {
+    fn create(
+        &self,
+        name: String,
+        platform_name: String,
+        organization: &Organization,
+    ) -> PlatformAccount;
+}
 
-impl PlatformAccountFactory {
-    pub fn create(
+#[derive(Provider)]
+#[shaku(interface = PlatformAccountFactory)]
+pub struct PlatformAccountFactoryImpl;
+
+impl PlatformAccountFactory for PlatformAccountFactoryImpl {
+    fn create(
         &self,
         name: String,
         platform_name: String,

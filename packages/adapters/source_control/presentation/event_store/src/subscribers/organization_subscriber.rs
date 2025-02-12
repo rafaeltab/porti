@@ -8,17 +8,17 @@ use eventstore::{
     SubscribeToPersistentSubscriptionOptions, SubscriptionFilter,
 };
 use source_control_domain::aggregates::organization::OrganizationEvent;
-use source_control_postgres_persistence_adapter::projectors::Projector;
+use source_control_postgres_persistence_adapter::projectors::{Projector, ProjectorError};
 use tracing::{error, info, instrument, span, Level, Span};
 
-pub struct OrganizationSubscriber<TProjector: Projector<OrganizationEvent>> {
+pub struct OrganizationSubscriber {
     pub client: Arc<Client>,
-    pub projector: TProjector,
+    pub projector: Box<dyn Projector<OrganizationEvent>>,
     pub subscription_name: String,
     pub worker_id: i32,
 }
 
-impl<TProjector: Projector<OrganizationEvent>> OrganizationSubscriber<TProjector> {
+impl OrganizationSubscriber {
     pub async fn prepare_subscription(&self) -> Result<(), Error> {
         let subscription = self
             .client
@@ -85,7 +85,7 @@ impl<TProjector: Projector<OrganizationEvent>> OrganizationSubscriber<TProjector
         &self,
         sub: &mut PersistentSubscription,
         event: ResolvedEvent,
-        err: TProjector::Error,
+        err: Box<dyn ProjectorError>,
     ) {
         let span = span!(Level::ERROR, "projection_failure");
         let _span = span.enter();

@@ -1,9 +1,10 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use source_control_application::commands::create_organization::{
+use shaku_actix::InjectProvided;
+use source_control_application::{commands::create_organization::{
     CreateOrganizationCommand, CreateOrganizationCommandError, CreateOrganizationCommandHandler,
-};
+}, module::ApplicationModule};
 use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
@@ -13,17 +14,16 @@ pub struct CreateArguments {
     name: String,
 }
 
-#[instrument]
+#[instrument(skip(command_handler))]
 pub async fn create_organization(
     arguments: web::Json<CreateArguments>,
-    command_handler: web::Data<CreateOrganizationCommandHandler>,
+    command_handler: InjectProvided<ApplicationModule, dyn CreateOrganizationCommandHandler>,
 ) -> HttpResponse {
     let command = CreateOrganizationCommand {
         name: arguments.name.clone(),
     };
 
-    let handler = command_handler.get_ref();
-    let result = handler.handle(command).await;
+    let result = command_handler.handle(command).await;
 
     match result {
         Ok(organization) => HttpResponse::Created().json(organization_to_json(&organization)),

@@ -18,3 +18,6 @@ members = [
 tracing = "0.1.41"
 debug-ignore = "1.0.5"
 tokio-postgres = "0.7.12"
+shaku = { version = "0.6.2", features=["derive", "thread_safe"]}
+async-trait = "0.1.86"
+shaku_actix = "0.2.0"

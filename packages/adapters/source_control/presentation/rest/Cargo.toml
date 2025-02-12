@@ -11,3 +11,5 @@ source_control_domain = {path="../../../../domains/source_control"}
 source_control_postgres_persistence_adapter = {path="../../persistence/postgres"}
 serde_json = "1.0.137"
 tracing = {workspace = true}
+shaku_actix = {workspace = true}
+

@@ -1,5 +1,5 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
+use shaku::{Interface, Provider};
 use source_control_domain::{
     entities::organization::{Organization, OrganizationId},
     repositories::organization_repository::{GetOrganizationError, OrganizationRepository},
@@ -10,13 +10,25 @@ pub struct GetOrganizationQuery {
     pub id: u64,
 }
 
-#[derive(Debug)]
-pub struct GetOrganizationQueryHandler {
-    pub repository: Arc<dyn OrganizationRepository>,
+#[async_trait]
+pub trait GetOrganizationQueryHandler: Interface {
+    async fn handle(
+        &self,
+        query: GetOrganizationQuery,
+    ) -> Result<Organization, GetOrganizationQueryError>;
 }
 
-impl GetOrganizationQueryHandler {
-    pub async fn handle(
+
+#[derive(Provider)]
+#[shaku(interface = GetOrganizationQueryHandler)]
+pub struct GetOrganizationQueryHandlerImpl {
+    #[shaku(provide)]
+    pub repository: Box<dyn OrganizationRepository>,
+}
+
+#[async_trait]
+impl GetOrganizationQueryHandler for GetOrganizationQueryHandlerImpl {
+    async fn handle(
         &self,
         query: GetOrganizationQuery,
     ) -> Result<Organization, GetOrganizationQueryError> {

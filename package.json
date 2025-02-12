@@ -2,5 +2,8 @@
     "$schema": "https://json.schemastore.org/package.json",
     "name": "@porti/root",
     "version": "0.0.1",
-    "packageManager": "pnpm@9.15.4"
+    "packageManager": "pnpm@9.15.4",
+    "scripts": {
+        "format": "cargo fmt"
+    }
 }

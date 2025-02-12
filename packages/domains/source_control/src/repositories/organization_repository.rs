@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use async_trait::async_trait;
+use shaku::Interface;
 use thiserror::Error;
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
 };
 
 #[async_trait]
-pub trait OrganizationRepository: Debug {
+pub trait OrganizationRepository: Interface {
     async fn get_log(
         &self,
         organization_id: OrganizationId,

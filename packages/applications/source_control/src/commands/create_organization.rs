@@ -1,5 +1,5 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
+use shaku::{Interface, Provider};
 use source_control_domain::{
     entities::organization::Organization,
     repositories::organization_repository::{CreateOrganizationError, OrganizationRepository},
@@ -10,13 +10,24 @@ pub struct CreateOrganizationCommand {
     pub name: String,
 }
 
-#[derive(Debug)]
-pub struct CreateOrganizationCommandHandler {
-    pub repository: Arc<dyn OrganizationRepository>,
+#[async_trait]
+pub trait CreateOrganizationCommandHandler: Interface {
+    async fn handle(
+        &self,
+        command: CreateOrganizationCommand,
+    ) -> Result<Organization, CreateOrganizationCommandError>;
 }
 
-impl CreateOrganizationCommandHandler {
-    pub async fn handle(
+#[derive(Provider)]
+#[shaku(interface = CreateOrganizationCommandHandler)]
+pub struct CreateOrganizationCommandHandlerImpl {
+    #[shaku(provide)]
+    pub repository: Box<dyn OrganizationRepository>,
+}
+
+#[async_trait]
+impl CreateOrganizationCommandHandler for CreateOrganizationCommandHandlerImpl {
+    async fn handle(
         &self,
         command: CreateOrganizationCommand,
     ) -> Result<Organization, CreateOrganizationCommandError> {

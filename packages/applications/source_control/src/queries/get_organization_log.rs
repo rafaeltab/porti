@@ -1,5 +1,5 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
+use shaku::{Interface, Provider};
 use source_control_domain::{
     aggregates::organization::OrganizationEvent,
     entities::organization::OrganizationId,
@@ -11,13 +11,24 @@ pub struct GetOrganizationLogQuery {
     pub id: u64,
 }
 
-#[derive(Debug)]
-pub struct GetOrganizationLogQueryHandler {
-    pub repository: Arc<dyn OrganizationRepository>,
+#[async_trait]
+pub trait GetOrganizationLogQueryHandler: Interface {
+    async fn handle(
+        &self,
+        query: GetOrganizationLogQuery,
+    ) -> Result<Box<[OrganizationEvent]>, GetOrganizationLogQueryError>;
 }
 
-impl GetOrganizationLogQueryHandler {
-    pub async fn handle(
+#[derive(Provider)]
+#[shaku(interface = GetOrganizationLogQueryHandler)]
+pub struct GetOrganizationLogQueryHandlerImpl {
+    #[shaku(provide)]
+    pub repository: Box<dyn OrganizationRepository>,
+}
+
+#[async_trait]
+impl GetOrganizationLogQueryHandler for GetOrganizationLogQueryHandlerImpl {
+    async fn handle(
         &self,
         query: GetOrganizationLogQuery,
     ) -> Result<Box<[OrganizationEvent]>, GetOrganizationLogQueryError> {

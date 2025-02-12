@@ -1,5 +1,5 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
+use shaku::{Interface, Provider};
 use source_control_domain::{
     aggregates::organization::OrganizationError,
     entities::organization::{Organization, OrganizationId},
@@ -18,15 +18,27 @@ pub struct AddPlatformAccountCommand {
     pub platform_name: String,
 }
 
-#[derive(Debug)]
-pub struct AddPlatformAccountCommandHandler {
-    pub repository: Arc<dyn OrganizationRepository>,
-    pub platform_account_factory: Arc<PlatformAccountFactory>,
+#[async_trait]
+pub trait AddPlatformAccountCommandHandler: Interface {
+    async fn handle(
+        &self,
+        command: AddPlatformAccountCommand,
+    ) -> Result<Organization, AddPlatformAccountCommandError> ;
 }
 
-impl AddPlatformAccountCommandHandler {
+#[derive(Provider)]
+#[shaku(interface = AddPlatformAccountCommandHandler)]
+pub struct AddPlatformAccountCommandHandlerImpl {
+    #[shaku(provide)]
+    pub repository: Box<dyn OrganizationRepository>,
+    #[shaku(provide)]
+    pub platform_account_factory: Box<dyn PlatformAccountFactory>,
+}
+
+#[async_trait]
+impl AddPlatformAccountCommandHandler for AddPlatformAccountCommandHandlerImpl {
     #[instrument(skip(self))]
-    pub async fn handle(
+    async fn handle(
         &self,
         command: AddPlatformAccountCommand,
     ) -> Result<Organization, AddPlatformAccountCommandError> {

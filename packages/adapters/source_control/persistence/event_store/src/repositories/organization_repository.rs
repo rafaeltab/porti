@@ -1,12 +1,12 @@
-use std::fmt;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use event_store_util::aggregates::organization::EventStoreOrganizationEvent;
 use event_store_util::from_recorded_event;
-use eventstore::{AppendToStreamOptions, Client, EventData, ReadStreamOptions};
+use eventstore::{AppendToStreamOptions, EventData, ReadStreamOptions};
 use serde_json::json;
+use shaku::Provider;
 use source_control_domain::entities::organization::Organization;
 use source_control_domain::repositories::organization_repository::GetOrganizationLogError;
 use source_control_domain::{
@@ -22,20 +22,13 @@ use source_control_domain::{
 };
 use tracing::{error, instrument, span, Instrument, Level};
 
+use crate::provider::EventStoreProvider;
+
+#[derive(Provider)]
+#[shaku(interface = OrganizationRepository)]
 pub struct OrganizationRepositoryImpl {
-    pub client: Arc<Client>,
-}
-
-impl fmt::Debug for OrganizationRepositoryImpl {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("OrganizationRepositoryImpl").finish()
-    }
-}
-
-impl OrganizationRepositoryImpl {
-    pub fn new_generic(client: Arc<Client>) -> Arc<dyn OrganizationRepository> {
-        Arc::new(Self { client })
-    }
+    #[shaku(inject)]
+    pub client: Arc<dyn EventStoreProvider>,
 }
 
 #[async_trait]
@@ -50,6 +43,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         let read_span = span!(Level::INFO, "event_store_read_stream");
         let read_stream_result = self
             .client
+            .get_client()
             .read_stream(stream.clone(), &ReadStreamOptions::default())
             .instrument(read_span)
             .await;
@@ -95,6 +89,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         let read_span = span!(Level::INFO, "event_store_read_stream");
         let read_stream_result = self
             .client
+            .get_client()
             .read_stream(stream.clone(), &ReadStreamOptions::default())
             .instrument(read_span)
             .await;
@@ -147,6 +142,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         let write_span = span!(Level::INFO, "event_store_append_stream");
         let write_result = self
             .client
+            .get_client()
             .append_to_stream(
                 stream,
                 &AppendToStreamOptions::default().expected_revision(
@@ -172,7 +168,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     async fn create(&self, name: String) -> Result<Organization, CreateOrganizationError> {
         let mut hasher = DefaultHasher::default();
         name.hash(&mut hasher);
@@ -192,6 +188,7 @@ impl OrganizationRepository for OrganizationRepositoryImpl {
         let write_span = span!(Level::INFO, "event_store_append_stream");
         let write_result = self
             .client
+            .get_client()
             .append_to_stream(
                 stream,
                 &AppendToStreamOptions::default()

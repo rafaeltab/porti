@@ -12,3 +12,5 @@ source_control_domain = {path= "../../../../domains/source_control"}
 thiserror = "2.0.11"
 tokio-postgres = "0.7.12"
 tracing = {workspace = true}
+shaku = {workspace = true}
+

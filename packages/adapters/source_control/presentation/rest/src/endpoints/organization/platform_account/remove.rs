@@ -1,10 +1,11 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use source_control_application::commands::remove_platform_account::{
+use shaku_actix::InjectProvided;
+use source_control_application::{commands::remove_platform_account::{
     RemovePlatformAccountCommand, RemovePlatformAccountCommandError,
     RemovePlatformAccountCommandHandler,
-};
+}, module::ApplicationModule};
 use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
@@ -15,10 +16,10 @@ pub struct RemovePath {
     platform_account_id: String,
 }
 
-#[instrument]
+#[instrument(skip(command_handler))]
 pub async fn remove_platform_account(
     path: web::Path<RemovePath>,
-    command_handler: web::Data<RemovePlatformAccountCommandHandler>,
+    command_handler: InjectProvided<ApplicationModule, dyn RemovePlatformAccountCommandHandler>,
 ) -> HttpResponse {
     let parse_result = path.organization_id.parse::<u64>();
     if parse_result.is_err() {
@@ -43,8 +44,7 @@ pub async fn remove_platform_account(
         account_id: platform_account_parse_result.unwrap(),
     };
 
-    let handler = command_handler.get_ref();
-    let result = handler.handle(command).await;
+    let result = command_handler.handle(command).await;
 
     match result {
         Ok(organization) => HttpResponse::Created().json(organization_to_json(&organization)),

@@ -9,6 +9,7 @@ derive_id = {path="../../utils/derive_id"}
 chrono = "0.4.39"
 hex = "0.4.3"
 async-trait = "0.1.85"
+shaku = {workspace = true}
 
 [dev-dependencies]
 clippy = "0.0.302"

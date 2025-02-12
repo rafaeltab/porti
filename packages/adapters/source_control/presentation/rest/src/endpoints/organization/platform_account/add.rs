@@ -1,8 +1,12 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use source_control_application::commands::add_platform_account::{
-    AddPlatformAccountCommand, AddPlatformAccountCommandError, AddPlatformAccountCommandHandler,
+use shaku_actix::InjectProvided;
+use source_control_application::{
+    commands::add_platform_account::{
+        AddPlatformAccountCommand, AddPlatformAccountCommandError, AddPlatformAccountCommandHandler,
+    },
+    module::ApplicationModule,
 };
 use tracing::instrument;
 
@@ -24,11 +28,11 @@ pub struct AddPath {
     organization_id: String,
 }
 
-#[instrument]
+#[instrument(skip(command_handler))]
 pub async fn add_platform_account(
     arguments: web::Json<AddArguments>,
     path: web::Path<AddPath>,
-    command_handler: web::Data<AddPlatformAccountCommandHandler>,
+    command_handler: InjectProvided<ApplicationModule, dyn AddPlatformAccountCommandHandler>,
 ) -> HttpResponse {
     let parse_result = path.organization_id.parse::<u64>();
     if parse_result.is_err() {
@@ -45,8 +49,7 @@ pub async fn add_platform_account(
         platform_name: arguments.platform.name.clone(),
     };
 
-    let handler = command_handler.get_ref();
-    let result = handler.handle(command).await;
+    let result = command_handler.handle(command).await;
 
     match result {
         Ok(organization) => HttpResponse::Created().json(organization_to_json(&organization)),

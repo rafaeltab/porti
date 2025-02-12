@@ -8,6 +8,12 @@ source_control_domain = {path="../../domains/source_control"}
 thiserror = "2.0.11"
 tracing ={workspace = true}
 tokio-postgres = {workspace = true}
+shaku = {workspace = true, features= ["derive"]}
+async-trait = {workspace = true}
+eventstore = "3.0.0"
+
+source_control_event_store_persistence_adapter = {path="../../adapters/source_control/persistence/event_store"}
+source_control_postgres_persistence_adapter = {path="../../adapters/source_control/persistence/postgres"}
 
 [dev-dependencies]
 clippy = "0.0.302"

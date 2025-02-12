@@ -1,9 +1,10 @@
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use source_control_application::queries::get_organization::{
+use shaku_actix::InjectProvided;
+use source_control_application::{module::ApplicationModule, queries::get_organization::{
     GetOrganizationQuery, GetOrganizationQueryError, GetOrganizationQueryHandler,
-};
+}};
 use tracing::instrument;
 
 use crate::serialization::organization::organization_to_json;
@@ -13,17 +14,16 @@ pub struct GetArguments {
     organization_id: u64,
 }
 
-#[instrument]
+#[instrument(skip(query_handler))]
 pub async fn get_organization(
     arguments: web::Path<GetArguments>,
-    query_handler: web::Data<GetOrganizationQueryHandler>,
+    query_handler: InjectProvided<ApplicationModule, dyn GetOrganizationQueryHandler>,
 ) -> HttpResponse {
     let command = GetOrganizationQuery {
         id: arguments.organization_id,
     };
 
-    let handler = query_handler.get_ref();
-    let result = handler.handle(command).await;
+    let result = query_handler.handle(command).await;
 
     match result {
         Ok(organization) => HttpResponse::Ok().json(organization_to_json(&organization)),

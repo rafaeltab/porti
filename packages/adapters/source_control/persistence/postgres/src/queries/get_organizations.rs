@@ -1,18 +1,16 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use shaku::{Interface, Provider};
 use source_control_domain::entities::organization::OrganizationId;
 use thiserror::Error;
-use tokio_postgres::Client;
 use tracing::{error, info};
+
+use crate::provider::PostgresProvider;
 
 pub struct GetOrganizationsQuery {
     pub page: i64,
     pub page_size: i64,
-}
-
-#[derive(Debug, Clone)]
-pub struct GetOrganizationsQueryHandler {
-    pub client: Arc<Client>,
 }
 
 pub struct OrganizationResult {
@@ -21,8 +19,24 @@ pub struct OrganizationResult {
     pub paltform_account_count: i64,
 }
 
-impl GetOrganizationsQueryHandler {
-    pub async fn handle(
+#[async_trait]
+pub trait GetOrganizationsQueryHandler: Interface {
+    async fn handle(
+        &self,
+        query: GetOrganizationsQuery,
+    ) -> Result<Vec<OrganizationResult>, GetOrganizationsQueryError>;
+}
+
+#[derive(Provider)]
+#[shaku(interface = GetOrganizationsQueryHandler)]
+pub struct GetOrganizationsQueryHandlerImpl {
+    #[shaku(inject)]
+    pub client: Arc<dyn PostgresProvider>,
+}
+
+#[async_trait]
+impl GetOrganizationsQueryHandler for GetOrganizationsQueryHandlerImpl {
+    async fn handle(
         &self,
         query: GetOrganizationsQuery,
     ) -> Result<Vec<OrganizationResult>, GetOrganizationsQueryError> {
@@ -30,6 +44,7 @@ impl GetOrganizationsQueryHandler {
         let offset = query.page * query.page_size;
         let result = self
             .client
+            .get_client()
             .query(
                 "select o.*, count(pa.*)
 from \"Organization\" o

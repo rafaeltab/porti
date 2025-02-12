@@ -1,5 +1,5 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
+use shaku::{Interface, Provider};
 use source_control_domain::{
     aggregates::organization::OrganizationError,
     entities::{
@@ -17,13 +17,24 @@ pub struct RemovePlatformAccountCommand {
     pub account_id: u64,
 }
 
-#[derive(Debug)]
-pub struct RemovePlatformAccountCommandHandler {
-    pub repository: Arc<dyn OrganizationRepository>,
+#[async_trait]
+pub trait RemovePlatformAccountCommandHandler: Interface {
+    async fn handle(
+        &self,
+        command: RemovePlatformAccountCommand,
+    ) -> Result<Organization, RemovePlatformAccountCommandError>;
 }
 
-impl RemovePlatformAccountCommandHandler {
-    pub async fn handle(
+#[derive(Provider)]
+#[shaku(interface = RemovePlatformAccountCommandHandler)]
+pub struct RemovePlatformAccountCommandHandlerImpl {
+    #[shaku(provide)]
+    pub repository: Box<dyn OrganizationRepository>,
+}
+
+#[async_trait]
+impl RemovePlatformAccountCommandHandler for RemovePlatformAccountCommandHandlerImpl {
+    async fn handle(
         &self,
         command: RemovePlatformAccountCommand,
     ) -> Result<Organization, RemovePlatformAccountCommandError> {

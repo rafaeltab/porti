@@ -1,27 +1,14 @@
 use std::sync::Arc;
 
 use actix_web::{
-    web::{self, Data},
+    web::{self},
     App, HttpServer,
 };
-use source_control_application::{
-    commands::remove_platform_account::RemovePlatformAccountCommandHandler,
-    queries::get_organization::GetOrganizationQueryHandler,
-};
-use source_control_application::{
-    commands::{
-        add_platform_account::AddPlatformAccountCommandHandler,
-        create_organization::CreateOrganizationCommandHandler,
-    },
-    queries::get_organization_log::GetOrganizationLogQueryHandler,
-};
-use source_control_domain::factories::platform_account::PlatformAccountFactory;
+use shaku::HasProvider;
+use source_control_application::module::get_module;
+use source_control_domain::aggregates::organization::OrganizationEvent;
 use source_control_event_store_interface::subscribers::organization_subscriber::OrganizationSubscriber;
-use source_control_event_store_persistence_adapter::repositories::organization_repository::OrganizationRepositoryImpl;
-use source_control_postgres_persistence_adapter::{
-    projectors::organization::OrganizationProjector,
-    queries::get_organizations::GetOrganizationsQueryHandler,
-};
+use source_control_postgres_persistence_adapter::projectors::Projector;
 use source_control_rest_interface::endpoints::organization::{
     create::create_organization, get_log::get_organization_log,
     platform_account::add::add_platform_account,
@@ -61,21 +48,18 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     let eventstore_client_arc = setup_eventstore();
     let postgres_client_arc = setup_postgres().await;
 
-    let projector = OrganizationProjector {
-        client: postgres_client_arc.clone(),
-    };
+    let module = Arc::new(get_module(
+        postgres_client_arc.clone(),
+        eventstore_client_arc.clone(),
+    ));
+
+    let projector: Box<dyn Projector<OrganizationEvent>> = module.provide().unwrap();
+
     let subscriber = OrganizationSubscriber {
         client: eventstore_client_arc.clone(),
         projector,
         worker_id: 1,
         subscription_name: SUBSCRIPTION_NAME.to_string(),
-    };
-
-    let platform_account_factory = PlatformAccountFactory {};
-    let platform_account_factory_arc = Arc::new(platform_account_factory);
-
-    let get_organizations_query = GetOrganizationsQueryHandler {
-        client: postgres_client_arc.clone(),
     };
 
     info!("Starting subscriber");
@@ -87,27 +71,9 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
     info!("Starting server");
     let val = HttpServer::new(move || {
-        let repo = OrganizationRepositoryImpl::new_generic(eventstore_client_arc.clone());
-
         App::new()
             .wrap(TracingLogger::default())
-            .app_data(Data::new(CreateOrganizationCommandHandler {
-                repository: repo.clone(),
-            }))
-            .app_data(Data::new(AddPlatformAccountCommandHandler {
-                repository: repo.clone(),
-                platform_account_factory: platform_account_factory_arc.clone(),
-            }))
-            .app_data(Data::new(RemovePlatformAccountCommandHandler {
-                repository: repo.clone(),
-            }))
-            .app_data(Data::new(GetOrganizationQueryHandler {
-                repository: repo.clone(),
-            }))
-            .app_data(Data::new(get_organizations_query.clone()))
-            .app_data(Data::new(GetOrganizationLogQueryHandler {
-                repository: repo.clone(),
-            }))
+            .app_data(module.clone())
             .route("/organization", web::post().to(create_organization))
             .route("/organization", web::get().to(get_organizations))
             .route(
