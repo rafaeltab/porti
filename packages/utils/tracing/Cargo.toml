@@ -6,14 +6,15 @@ edition = "2021"
 [dependencies]
 tracing-log = "0.2.0"
 once_cell = { version = "*" }
-opentelemetry = { version = "*", features = ["metrics", "logs"] }
-opentelemetry_sdk = { version = "*", features = ["rt-tokio", "logs"] }
-opentelemetry-otlp = { version = "*", features = ["tonic", "metrics", "logs"] }
-opentelemetry-semantic-conventions = { version = "*" }
 tokio = { version = "1.0", features = ["full"] }
-opentelemetry-appender-tracing = { version = "*", default-features = false}
 tracing = {workspace = true}
 tracing-core = { version = "*" }
 tracing-subscriber = { version = "*", features = ["env-filter","registry", "std"] }
-tracing-opentelemetry = "0.28.0"
-opentelemetry-stdout = "0.27.0"
+
+tracing-opentelemetry = "0.29.0"
+opentelemetry-stdout = "0.28.0"
+opentelemetry-appender-log = { version = "0.28.0", default-features = false}
+opentelemetry = { version = "0.28.0", features = ["metrics", "logs"] }
+opentelemetry_sdk = { version = "0.28.0", features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { version = "0.28.0", features = ["grpc-tonic", "metrics", "logs"] }
+opentelemetry-semantic-conventions = { version = "0.28.0" }

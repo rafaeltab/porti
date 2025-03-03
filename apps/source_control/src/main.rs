@@ -28,7 +28,7 @@ use utoipa_actix_web::AppExt;
 
 mod startup;
 
-static SUBSCRIPTION_NAME: &str = "organization-projector-002";
+static SUBSCRIPTION_NAME: &str = "organization-projector-003";
 
 #[tokio::main]
 #[instrument]
