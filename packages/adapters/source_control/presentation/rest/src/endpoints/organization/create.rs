@@ -1,42 +1,67 @@
-use actix_web::{web, HttpResponse};
+#![allow(clippy::duplicated_attributes)]
+
+use actix_web::{
+    post,
+    web::{self},
+};
+use actix_web::HttpResponse;
 use serde::Deserialize;
-use serde_json::json;
-use shaku_actix::InjectProvided;
-use source_control_application::{commands::create_organization::{
-    CreateOrganizationCommand, CreateOrganizationCommandError, CreateOrganizationCommandHandler,
-}, module::ApplicationModule};
+use shaku::HasProvider;
+use source_control_application::{
+    commands::create_organization::{
+        CreateOrganizationCommand, CreateOrganizationCommandError, CreateOrganizationCommandHandler,
+    },
+    module::ApplicationModule,
+};
 use tracing::instrument;
+use utoipa::ToSchema;
 
-use crate::serialization::organization::organization_to_json;
+use crate::{
+    errors::{Conflict, InternalServerError},
+    models::organization::OrganizationDto,
+};
 
-#[derive(Deserialize, Debug)]
-pub struct CreateArguments {
-    name: String,
-}
-
-#[instrument(skip(command_handler))]
+#[utoipa::path(
+    responses(
+        (status = 201, description = "Organization created successfully", body=OrganizationDto),
+        (status = 409, description = "An organization with the same name already exists", body=Conflict),
+        (status = 500, description = "An unexpected issue happened", body=InternalServerError)
+    )
+)]
+#[post("/organizations")]
+#[instrument(skip(module))]
 pub async fn create_organization(
     arguments: web::Json<CreateArguments>,
-    command_handler: InjectProvided<ApplicationModule, dyn CreateOrganizationCommandHandler>,
-) -> HttpResponse {
+    module: web::Data<ApplicationModule>,
+) ->  HttpResponse {
     let command = CreateOrganizationCommand {
         name: arguments.name.clone(),
     };
 
+    let command_handler: Box<dyn CreateOrganizationCommandHandler> = module.provide().unwrap();
+
     let result = command_handler.handle(command).await;
 
     match result {
-        Ok(organization) => HttpResponse::Created().json(organization_to_json(&organization)),
-        Err(CreateOrganizationCommandError::Conflict) => HttpResponse::Conflict().json(json!({
-            "message": "A data conflict happened while creating the organization"
-        })),
-        Err(CreateOrganizationCommandError::Connection) => HttpResponse::InternalServerError()
-            .json(json!({
-                "message": "The server failed to connect to the database"
-            })),
-        Err(CreateOrganizationCommandError::Unexpected) => HttpResponse::InternalServerError()
-            .json(json!({
-                "message": "Something went unexpectedly wrong"
-            })),
+        Ok(organization) => {
+            let dto: OrganizationDto = (&organization).into();
+            HttpResponse::Created().json(dto)
+        }
+        Err(CreateOrganizationCommandError::Conflict) => {
+            Conflict::new("A data conflict happened while creating the organization".to_string()).into()
+        }
+
+        Err(CreateOrganizationCommandError::Connection) => {
+            InternalServerError::new("Something went wrong while creating organization".to_string()).into()
+        }
+
+        Err(CreateOrganizationCommandError::Unexpected) => {
+            InternalServerError::new("Something went wrong while creating organization".to_string()).into()
+        }
     }
+}
+
+#[derive(Deserialize, Debug, ToSchema)]
+pub struct CreateArguments {
+    name: String,
 }

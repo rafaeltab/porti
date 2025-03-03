@@ -21,3 +21,5 @@ tokio-postgres = "0.7.12"
 shaku = { version = "0.6.2", features=["derive", "thread_safe"]}
 async-trait = "0.1.86"
 shaku_actix = "0.2.0"
+utoipa-actix-web = "0.1.2"
+utoipa = {version = "5.3.1", features = ["actix_extras"]}

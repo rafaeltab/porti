@@ -21,13 +21,13 @@ pub fn setup_tracing(
         std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or("http://localhost:4317".to_string());
     let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or(default_service_name);
 
-    let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
+    let otlp_span_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_endpoint(otlp_endpoint.clone())
         .with_timeout(Duration::from_secs(3))
         .build()?;
 
-    let stdout_exporter = opentelemetry_stdout::SpanExporter::default();
+    // let stdout_exporter = opentelemetry_stdout::SpanExporter::default();
 
     let resource = Resource::default().merge(&Resource::new(vec![KeyValue::new(
         "service.name",
@@ -41,9 +41,9 @@ pub fn setup_tracing(
 
     let tracer_provider = TracerProvider::builder()
         .with_resource(resource)
-        .with_simple_exporter(stdout_exporter)
+        // .with_simple_exporter(stdout_exporter)
         // .with_simple_exporter(otlp_exporter)
-        .with_batch_exporter(otlp_exporter, opentelemetry_sdk::runtime::Tokio)
+        .with_batch_exporter(otlp_span_exporter, opentelemetry_sdk::runtime::Tokio)
         .with_sampler(Sampler::AlwaysOn)
         .build();
 

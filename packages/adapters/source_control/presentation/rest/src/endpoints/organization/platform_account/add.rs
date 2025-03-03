@@ -1,7 +1,7 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{post, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use shaku_actix::InjectProvided;
+use shaku::HasProvider;
 use source_control_application::{
     commands::add_platform_account::{
         AddPlatformAccountCommand, AddPlatformAccountCommandError, AddPlatformAccountCommandHandler,
@@ -9,16 +9,20 @@ use source_control_application::{
     module::ApplicationModule,
 };
 use tracing::instrument;
+use utoipa::ToSchema;
 
-use crate::serialization::organization::organization_to_json;
+use crate::{
+    errors::{Conflict, InternalServerError, NotFound},
+    models::organization::OrganizationDto,
+};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct AddArguments {
     name: String,
     platform: PlatformArgument,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct PlatformArgument {
     name: String,
 }
@@ -28,11 +32,21 @@ pub struct AddPath {
     organization_id: String,
 }
 
-#[instrument(skip(command_handler))]
+#[utoipa::path(
+    responses(
+        (status = 201, description = "Platform account successfully added", body=OrganizationDto),
+        (status = 404, description = "Organization couldn't be found", body=NotFound),
+        (status = 409, description = "Platform account already exists on organization", body=Conflict),
+        (status = 500, description = "An unexpected issue happened", body=InternalServerError)
+    )
+)]
+#[post("/organization/{organization_id}/platform-account")]
+#[instrument(skip(module, req))]
 pub async fn add_platform_account(
     arguments: web::Json<AddArguments>,
     path: web::Path<AddPath>,
-    command_handler: InjectProvided<ApplicationModule, dyn AddPlatformAccountCommandHandler>,
+    module: web::Data<ApplicationModule>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let parse_result = path.organization_id.parse::<u64>();
     if parse_result.is_err() {
@@ -43,6 +57,7 @@ pub async fn add_platform_account(
         }));
     }
 
+    let command_handler: Box<dyn AddPlatformAccountCommandHandler> = module.provide().unwrap();
     let command = AddPlatformAccountCommand {
         organization_id: parse_result.unwrap(),
         name: arguments.name.clone(),
@@ -52,27 +67,25 @@ pub async fn add_platform_account(
     let result = command_handler.handle(command).await;
 
     match result {
-        Ok(organization) => HttpResponse::Created().json(organization_to_json(&organization)),
-        Err(AddPlatformAccountCommandError::Conflict) => HttpResponse::Conflict().json(json!({
-            "message": "A data conflict happened while adding paltform account"
-        })),
-        Err(AddPlatformAccountCommandError::Connection) => HttpResponse::InternalServerError()
-            .json(json!({
-                "message": "The server failed to connect to the database"
-            })),
-        Err(AddPlatformAccountCommandError::Unexpected) => HttpResponse::InternalServerError()
-            .json(json!({
-                "message": "Something went unexpectedly wrong"
-            })),
+        Ok(organization) => {
+            let res: OrganizationDto = (&organization).into();
+            HttpResponse::Created().json(res)
+        }
+        Err(AddPlatformAccountCommandError::Conflict) => {
+            Conflict::new("A data conflict happened while adding paltform account".to_string())
+                .into()
+        }
+        Err(AddPlatformAccountCommandError::Connection) => InternalServerError::new(
+            "Something went wrong while adding platform account to organization".to_string(),
+        )
+        .into(),
+        Err(AddPlatformAccountCommandError::Unexpected) => InternalServerError::new(
+            "Something went wrong while adding platform account to organization".to_string(),
+        )
+        .into(),
         Err(AddPlatformAccountCommandError::AccountAlreadyAdded) => {
-            HttpResponse::Conflict().json(json!({
-                "message": "Account was already added to this organization"
-            }))
+            Conflict::new("Account was already added to this organization".to_string()).into()
         }
-        Err(AddPlatformAccountCommandError::NotFound { .. }) => {
-            HttpResponse::NotFound().json(json!({
-                "message": "Organization not found"
-            }))
-        }
+        Err(AddPlatformAccountCommandError::NotFound { .. }) => NotFound::new(&req).into(),
     }
 }

@@ -7,7 +7,8 @@ use source_control_event_store_persistence_adapter::{
     repositories::organization_repository::OrganizationRepositoryImpl,
 };
 use source_control_postgres_persistence_adapter::{
-    projectors::organization::OrganizationProjector, provider::{PostgresProviderImpl, PostgresProviderImplParameters},
+    projectors::organization::OrganizationProjector,
+    provider::{PostgresProviderImpl, PostgresProviderImplParameters},
     queries::get_organizations::GetOrganizationsQueryHandlerImpl,
 };
 
@@ -43,7 +44,10 @@ module! {
     }
 }
 
-pub fn get_module(postgres_client: Arc<tokio_postgres::Client>, eventstore_client: Arc<eventstore::Client>) -> ApplicationModule {
+pub fn get_module(
+    postgres_client: Arc<tokio_postgres::Client>,
+    eventstore_client: Arc<eventstore::Client>,
+) -> ApplicationModule {
     ApplicationModule::builder()
         .with_component_parameters::<PostgresProviderImpl>(PostgresProviderImplParameters {
             client: postgres_client,

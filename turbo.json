@@ -1,5 +1,6 @@
 {
     "$schema": "https://turborepo.org/schema.json",
+    "ui": "tui",
     "tasks": {
         "build": {
             "cache": false
@@ -8,6 +9,15 @@
             "cache": false
         },
         "run": {
+            "cache": false
+        },
+        "start:infra": {
+            "cache": false
+        },
+        "stop:infra": {
+            "cache": false
+        },
+        "delete:infra": {
             "cache": false
         }
     }

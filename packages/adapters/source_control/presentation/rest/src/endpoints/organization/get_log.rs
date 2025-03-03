@@ -1,48 +1,60 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{get, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
-use serde_json::json;
-use shaku_actix::InjectProvided;
-use source_control_application::{module::ApplicationModule, queries::get_organization_log::{
-    GetOrganizationLogQuery, GetOrganizationLogQueryError, GetOrganizationLogQueryHandler,
-}};
+use shaku::HasProvider;
+use source_control_application::{
+    module::ApplicationModule,
+    queries::get_organization_log::{
+        GetOrganizationLogQuery, GetOrganizationLogQueryError, GetOrganizationLogQueryHandler,
+    },
+};
 use tracing::instrument;
 
-use crate::serialization::organization::organization_log_to_json;
+use crate::{
+    errors::{InternalServerError, NotFound},
+    models::organization_events::OrganizationEventDto,
+};
 
 #[derive(Deserialize, Debug)]
 pub struct GetArguments {
     organization_id: u64,
 }
 
-#[instrument(skip(query_handler))]
+#[utoipa::path(
+    responses(
+        (status = 200, description = "Organization found successfully", body=Vec<OrganizationEventDto>),
+        (status = 404, description = "The organization couldn't be found", body=NotFound),
+        (status = 500, description = "An unexpected issue happened", body=InternalServerError)
+    )
+)]
+#[get("/organizations/{organization_id}/log")]
+#[instrument(skip(module, req))]
 pub async fn get_organization_log(
     arguments: web::Path<GetArguments>,
-    query_handler: InjectProvided<ApplicationModule, dyn GetOrganizationLogQueryHandler>,
+    module: web::Data<ApplicationModule>,
+    req: HttpRequest,
 ) -> HttpResponse {
     let command = GetOrganizationLogQuery {
         id: arguments.organization_id,
     };
 
+    let query_handler: Box<dyn GetOrganizationLogQueryHandler> = module.provide().unwrap();
+
     let result = query_handler.handle(command).await;
 
     match result {
         Ok(organization_log) => {
-            HttpResponse::Ok().json(organization_log_to_json(&organization_log))
+            let res: Vec<OrganizationEventDto> =
+                organization_log.iter().map(|e| e.into()).collect();
+            HttpResponse::Ok().json(res)
         }
-        Err(GetOrganizationLogQueryError::NotFound { .. }) => {
-            HttpResponse::NotFound().json(json!({
-                "message": "Organization not found"
-            }))
-        }
-        Err(GetOrganizationLogQueryError::Connection) => {
-            HttpResponse::InternalServerError().json(json!({
-                "message": "The server failed to connect to the database"
-            }))
-        }
-        Err(GetOrganizationLogQueryError::Unexpected) => {
-            HttpResponse::InternalServerError().json(json!({
-                "message": "Something went unexpectedly wrong"
-            }))
-        }
+        Err(GetOrganizationLogQueryError::NotFound { .. }) => NotFound::new(&req).into(),
+        Err(GetOrganizationLogQueryError::Connection) => InternalServerError::new(
+            "Something went wrong while retreiving the organization".to_string(),
+        )
+        .into(),
+        Err(GetOrganizationLogQueryError::Unexpected) => InternalServerError::new(
+            "Something went wrong while retreiving the organization".to_string(),
+        )
+        .into(),
     }
 }

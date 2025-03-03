@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
 use actix_web::{
-    web::{self},
+    web::{self, Data},
     App, HttpServer,
 };
+use myopenapi::WithOpenApi;
 use shaku::HasProvider;
-use source_control_application::module::get_module;
+use source_control_application::module::{get_module, ApplicationModule};
 use source_control_domain::aggregates::organization::OrganizationEvent;
 use source_control_event_store_interface::subscribers::organization_subscriber::OrganizationSubscriber;
 use source_control_postgres_persistence_adapter::projectors::Projector;
@@ -23,6 +24,7 @@ use tracing_actix_web::TracingLogger;
 use tracing_core::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use tracing_util::{setup_tracing, shutdown_tracing};
+use utoipa_actix_web::AppExt;
 
 mod startup;
 
@@ -71,27 +73,21 @@ async fn main() -> std::result::Result<(), std::io::Error> {
 
     info!("Starting server");
     let val = HttpServer::new(move || {
+        let app_data: Data<ApplicationModule> = module.clone().into();
         App::new()
             .wrap(TracingLogger::default())
-            .app_data(module.clone())
-            .route("/organization", web::post().to(create_organization))
-            .route("/organization", web::get().to(get_organizations))
-            .route(
-                "/organization/{organization_id}",
-                web::get().to(get_organization),
-            )
-            .route(
-                "/organization/{organization_id}/log",
-                web::get().to(get_organization_log),
-            )
-            .route(
-                "/organization/{organization_id}/platform-account",
-                web::post().to(add_platform_account),
-            )
+            .into_utoipa_app()
+            .app_data(app_data)
+            .service(get_organization)
+            .service(create_organization)
+            .service(get_organizations)
+            .service(get_organization_log)
+            .service(add_platform_account)
             .route(
                 "/organization/{organization_id}/platform-account/{platform_account_id}",
                 web::delete().to(remove_platform_account),
             )
+            .with_openapi()
     })
     .bind(("0.0.0.0", 8080))?
     .run()
@@ -100,4 +96,42 @@ async fn main() -> std::result::Result<(), std::io::Error> {
     shutdown_tracing();
 
     val
+}
+
+mod myopenapi {
+    use std::sync::RwLock;
+
+    use actix_web::{
+        dev::{ServiceFactory, ServiceRequest},
+        get, App, HttpResponse, Responder,
+    };
+    use utoipa_actix_web::UtoipaApp;
+
+    pub trait WithOpenApi<T> {
+        fn with_openapi(self) -> App<T>;
+    }
+    static OPENAPI_STR: RwLock<String> = RwLock::new(String::new());
+
+    #[get("openapi.json")]
+    async fn get_openapi() -> impl Responder {
+        let val = OPENAPI_STR.read().unwrap().clone();
+        HttpResponse::Ok()
+            .content_type("application/vnd.oai.openapi+json;version=3.1")
+            .body(val)
+    }
+
+    impl<T> WithOpenApi<T> for UtoipaApp<T>
+    where
+        T: ServiceFactory<ServiceRequest, Config = (), Error = actix_web::Error, InitError = ()>,
+    {
+        fn with_openapi(self) -> App<T> {
+            let (a, b) = self.split_for_parts();
+            {
+                let mut w = OPENAPI_STR.write().unwrap();
+                *w = b.to_json().unwrap();
+            }
+
+            a.service(get_openapi)
+        }
+    }
 }

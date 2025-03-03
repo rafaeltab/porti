@@ -1,14 +1,19 @@
-use actix_web::{web, HttpResponse};
+use actix_web::{get, web, HttpResponse};
 use serde::Deserialize;
-use serde_json::{json, Value};
-use shaku_actix::InjectProvided;
+use shaku::HasProvider;
 use source_control_application::module::ApplicationModule;
 use source_control_postgres_persistence_adapter::queries::get_organizations::{
     GetOrganizationsQuery, GetOrganizationsQueryError, GetOrganizationsQueryHandler,
 };
 use tracing::instrument;
 
-use crate::serialization::organization::organization_result_to_json;
+use crate::{
+    errors::InternalServerError,
+    models::{
+        organization::PartialOrganizationDto,
+        paginated_result::{PageMetadata, PaginatedResult},
+    },
+};
 
 #[derive(Deserialize, Debug)]
 pub struct GetAllArguments {
@@ -16,13 +21,21 @@ pub struct GetAllArguments {
     pub page_size: Option<i64>,
 }
 
-#[instrument(skip(query_handler))]
+#[utoipa::path(
+    responses(
+        (status = 200, description = "Organization found successfully", body=PaginatedResult<PartialOrganizationDto>),
+        (status = 500, description = "An unexpected issue happened", body=InternalServerError)
+    )
+)]
+#[get("/organizations")]
+#[instrument(skip(module))]
 pub async fn get_organizations(
     arguments: web::Query<GetAllArguments>,
-    query_handler: InjectProvided<ApplicationModule, dyn GetOrganizationsQueryHandler>,
+    module: web::Data<ApplicationModule>,
 ) -> HttpResponse {
     let page = arguments.page.unwrap_or(0);
     let page_size = arguments.page_size.unwrap_or(10);
+    let query_handler: Box<dyn GetOrganizationsQueryHandler> = module.provide().unwrap();
 
     let query = GetOrganizationsQuery { page, page_size };
 
@@ -30,27 +43,19 @@ pub async fn get_organizations(
 
     match result {
         Ok(organizations) => {
-            let results = organizations
-                .iter()
-                .map(organization_result_to_json)
-                .collect::<Vec<Value>>();
-            HttpResponse::Ok().json(json!({
-                "items": results,
-                "metadata": {
-                    "page": page,
-                    "page_size": page_size,
-                }
-            }))
+            let response: PaginatedResult<PartialOrganizationDto> = PaginatedResult {
+                items: organizations.iter().map(|o| o.into()).collect(),
+                metadata: PageMetadata { page, page_size },
+            };
+            HttpResponse::Ok().json(response)
         }
-        Err(GetOrganizationsQueryError::Connection) => {
-            HttpResponse::InternalServerError().json(json!({
-                "message": "The server failed to connect to the database"
-            }))
-        }
-        Err(GetOrganizationsQueryError::Unexpected) => {
-            HttpResponse::InternalServerError().json(json!({
-                "message": "Something went unexpectedly wrong"
-            }))
-        }
+        Err(GetOrganizationsQueryError::Connection) => InternalServerError::new(
+            "Something went wrong while retreiving the organizations".to_string(),
+        )
+        .into(),
+        Err(GetOrganizationsQueryError::Unexpected) => InternalServerError::new(
+            "Something went wrong while retreiving the organizations".to_string(),
+        )
+        .into(),
     }
 }

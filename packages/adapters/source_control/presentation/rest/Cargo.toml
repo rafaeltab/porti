@@ -12,4 +12,9 @@ source_control_postgres_persistence_adapter = {path="../../persistence/postgres"
 serde_json = "1.0.137"
 tracing = {workspace = true}
 shaku_actix = {workspace = true}
-
+problem = "5.3.0"
+validator = { version = "0.20.0", features = ["derive"] }
+derive_more = { version = "2.0.1", features = ["display"] }
+shaku = {workspace = true}
+utoipa-actix-web = {workspace = true}
+utoipa = {workspace = true}
