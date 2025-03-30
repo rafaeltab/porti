@@ -1,0 +1,10 @@
+{
+    "$schema": "https://json.schemastore.org/package.json",
+    "name": "@porti/local-database-infra",
+    "version": "0.0.1",
+    "scripts": {
+        "start:infra": "docker compose up -d",
+        "stop:infra": "docker compose stop",
+        "delete:infra": "docker compose down"
+    }
+}

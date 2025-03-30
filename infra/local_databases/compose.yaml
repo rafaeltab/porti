@@ -1,4 +1,5 @@
 version: '3.9'
+
 services:
   eventstore.db:
     image: docker.eventstore.com/eventstore/eventstoredb-ee:24.10.1
@@ -30,18 +31,6 @@ services:
       - POSTGRES_PASSWORD=S3cret
       - POSTGRES_USER=source_control
       - POSTGRES_DB=source_control
-  # jaeger:
-  #   image: jaegertracing/all-in-one:latest
-  #   ports:
-  #     - "16686:16686"
-  #     - "4317:4317"
-  #     - "4318:4318"
-  #     - "14268:14268"
-  #     - "14250:14250"
-  #     - "6831:6831/udp"
-  #     - "6832:6832/udp"
-  #   environment:
-  #     - COLLECTOR_OTLP_ENABLED=true
 
 volumes:
   eventstore-volume-data:
