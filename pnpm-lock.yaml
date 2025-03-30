@@ -10,6 +10,8 @@ importers:
 
   apps/source_control: {}
 
+  infra/local: {}
+
   packages/adapters/source_control/persistence/event_store: {}
 
   packages/adapters/source_control/persistence/postgres: {}
@@ -22,6 +24,10 @@ importers:
 
   packages/domains/source_control: {}
 
+  packages/utils/actix_tracing: {}
+
   packages/utils/derive_id: {}
 
   packages/utils/event_store: {}
+
+  packages/utils/tracing: {}

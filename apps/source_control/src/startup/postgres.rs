@@ -21,7 +21,7 @@ pub async fn setup_postgres() -> Arc<Client> {
 async fn connect_postgres() -> (Client, Connection<Socket, NoTlsStream>) {
     let res = tokio_postgres::Config::default()
         .user("source_control")
-        .host("localhost")
+        .host("postgres")
         .password("S3cret")
         .connect(NoTls)
         .await;

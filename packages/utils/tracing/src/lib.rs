@@ -28,7 +28,7 @@ pub fn setup_tracing(
 
     // Configure the OTLP exporter.  Read from environment variables.
     let otlp_endpoint =
-        std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or("http://localhost:4317".to_string());
+        std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or("http://otel-collector:4317".to_string());
     let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or(default_service_name);
 
     let otlp_span_exporter = SpanExporter::builder()

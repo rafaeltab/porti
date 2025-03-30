@@ -1,4 +1,20 @@
 receivers:
+  postgresql:
+    endpoint: "postgres:5432"
+    username: "source_control"
+    password: "S3cret"
+    collection_interval: 10s
+    tls:
+      insecure: true
+      insecure_skip_verify: true
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'eventstoredb'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['eventstore.db:2113']
+
   otlp:
     protocols:
       grpc:
@@ -29,7 +45,7 @@ service:
       processors: [batch]
       exporters: [otlp/tempo]
     metrics:
-      receivers: [otlp]
+      receivers: [otlp, postgresql, prometheus]
       processors: [batch]
       exporters: [prometheus]
     logs:

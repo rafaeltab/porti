@@ -7,7 +7,7 @@ use tracing::{error, info, instrument};
 pub fn setup_eventstore() -> Arc<Client> {
     info!("Connecting to event store");
     let connect_result = eventstore::Client::new(
-        "esdb://localhost:2113?tls=false"
+        "esdb://eventstore.db:2113?tls=false"
             .parse()
             .expect("Could not connect to event store"),
     );

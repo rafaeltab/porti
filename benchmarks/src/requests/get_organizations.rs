@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::{Arc, LazyLock}};
 
 use futures_util::future::BoxFuture;
 use rand::{rng, Rng};
 use reqwest::Client;
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
 use crate::store::Store;
 
@@ -14,15 +15,19 @@ pub struct GetOrganizations {
     pub root_url: Arc<String>,
 }
 
+static page_nr: LazyLock<RwLock<u32>> = LazyLock::new(|| RwLock::new(0));
+
 impl GetOrganizations {
     async fn request(&self, client: Client, request_handler: Box<dyn RequestHandler>) {
-        let page: u32;
-        let page_size: u32;
-        {
-            let mut rng = rng();
-            page = rng.random_range(0..100);
-            page_size = rng.random_range(10..100);
+        let mut page_lock = page_nr.write().await;
+        let page: u32 = *page_lock;
+        let page_size: u32 = 100;
+
+        if page > 100 {
+            return
         }
+
+        *page_lock = page + 1;
 
         let url = format!(
             "{}/organizations?page_size={}&page={}",

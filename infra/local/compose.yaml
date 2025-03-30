@@ -4,6 +4,11 @@ services:
   # Grafana - Visualization
   grafana:
     image: grafana/grafana:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2GB
     container_name: grafana
     ports:
       - "8003:3000"
@@ -19,11 +24,16 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     networks:
-      - monitoring
+      - local
 
   # Prometheus - Metrics
   prometheus:
     image: prom/prometheus:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2GB
     container_name: prometheus
     ports:
       - "9090:9090"
@@ -37,11 +47,74 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     networks:
-      - monitoring
+      - local
+
+  eventstore.db:
+    image: docker.eventstore.com/eventstore/eventstoredb-ee:24.10.1
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2GB
+    environment:
+      - EVENTSTORE_CLUSTER_SIZE=1
+      - EVENTSTORE_RUN_PROJECTIONS=All
+      - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+      - EVENTSTORE_NODE_PORT=2113
+      - EVENTSTORE_INSECURE=true
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+    ports:
+      - "2113:2113"
+    volumes:
+      - type: volume
+        source: eventstore-volume-data
+        target: /var/lib/eventstore
+      - type: volume
+        source: eventstore-volume-logs
+        target: /var/log/eventstore
+    networks:
+      - local
+
+  postgres:
+    image: postgres:17-alpine
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2GB
+    ports:
+      - 5432:5432
+    volumes:
+      - type: volume
+        source: psql-volume-data
+        target: /var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=S3cret
+      - POSTGRES_USER=source_control
+      - POSTGRES_DB=source_control
+    networks:
+      - local
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "8004:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: rafael@rafaeltab.com
+      PGADMIN_DEFAULT_PASSWORD: S3cret
+    depends_on:
+      - postgres
+    networks:
+      - local
 
   # Loki - Logs
   loki:
     image: grafana/loki:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2GB
     container_name: loki
     user: root  # Running as root for development
     ports:
@@ -51,11 +124,16 @@ services:
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     networks:
-      - monitoring
+      - local
 
   # Tempo - Traces
   tempo:
     image: grafana/tempo:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2GB
     container_name: tempo
     user: root  # Running as root for development
     ports:
@@ -65,11 +143,16 @@ services:
       - tempo-data:/tmp/tempo
     command: -config.file=/etc/tempo/tempo-config.yaml
     networks:
-      - monitoring
+      - local
 
   # OpenTelemetry Collector (using contrib version)
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2GB
     container_name: otel-collector
     ports:
       - "8888:8888"   # Metrics
@@ -84,7 +167,22 @@ services:
       - tempo
     command: ["--config=/etc/otelcol/config.yaml"]
     networks:
-      - monitoring
+      - local
+
+  source_control:
+    image: source_control:latest
+    depends_on:
+      - postgres
+      - eventstore.db
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2GB
+    ports:
+      - 8080:8080
+    networks:
+      - local
 
 volumes:
   grafana-data:
@@ -111,8 +209,27 @@ volumes:
       o: bind
       type: none
       device: $HOME/.rafaeltab/volumes/source_control/tempo_data
+  eventstore-volume-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/eventstore_volume_data
+
+  eventstore-volume-logs:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/eventstore_volume_logs
+
+  psql-volume-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/psql_volume_data
 
 networks:
-  monitoring:
+  local:
     driver: bridge
-
