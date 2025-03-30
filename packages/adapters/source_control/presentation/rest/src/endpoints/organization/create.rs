@@ -28,7 +28,7 @@ use crate::{
         (status = 500, description = "An unexpected issue happened", body=InternalServerError)
     )
 )]
-#[post("/organizations")]
+#[post("/organizations", name = "organizations")]
 #[instrument(skip(module))]
 pub async fn create_organization(
     arguments: web::Json<CreateArguments>,

@@ -11,7 +11,8 @@ members = [
     "packages/domains/source_control",
     "packages/utils/derive_id",
     "packages/utils/event_store",
-    "packages/utils/tracing"
+    "packages/utils/tracing",
+    "packages/utils/actix_tracing"
 ]
 
 [workspace.dependencies]
@@ -23,3 +24,13 @@ async-trait = "0.1.86"
 shaku_actix = "0.2.0"
 utoipa-actix-web = "0.1.2"
 utoipa = {version = "5.3.1", features = ["actix_extras"]}
+log = "0.4.25"
+actix-web = "4.9.0"
+futures-util = "0.3.31"
+tracing-opentelemetry = "0.29.0"
+opentelemetry-stdout = "0.28.0"
+opentelemetry-appender-log = { version = "0.28.0", default-features = false}
+opentelemetry = { version = "0.28.0", features = ["metrics", "logs"] }
+opentelemetry_sdk = { version = "0.28.0", features = ["rt-tokio", "logs"] }
+opentelemetry-otlp = { version = "0.28.0", features = ["grpc-tonic", "metrics", "logs"] }
+opentelemetry-semantic-conventions = { version = "0.28.0" }

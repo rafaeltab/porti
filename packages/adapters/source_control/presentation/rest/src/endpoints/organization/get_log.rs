@@ -26,7 +26,7 @@ pub struct GetArguments {
         (status = 500, description = "An unexpected issue happened", body=InternalServerError)
     )
 )]
-#[get("/organizations/{organization_id}/log")]
+#[get("/organizations/{organization_id}/log", name="organization_log")]
 #[instrument(skip(module, req))]
 pub async fn get_organization_log(
     arguments: web::Path<GetArguments>,
@@ -47,7 +47,7 @@ pub async fn get_organization_log(
                 organization_log.iter().map(|e| e.into()).collect();
             HttpResponse::Ok().json(res)
         }
-        Err(GetOrganizationLogQueryError::NotFound { .. }) => NotFound::new(&req).into(),
+        Err(GetOrganizationLogQueryError::NotFound { .. }) => NotFound::from_request(&req).into(),
         Err(GetOrganizationLogQueryError::Connection) => InternalServerError::new(
             "Something went wrong while retreiving the organization".to_string(),
         )

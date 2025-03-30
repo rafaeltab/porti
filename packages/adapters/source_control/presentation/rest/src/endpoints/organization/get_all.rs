@@ -27,7 +27,7 @@ pub struct GetAllArguments {
         (status = 500, description = "An unexpected issue happened", body=InternalServerError)
     )
 )]
-#[get("/organizations")]
+#[get("/organizations", name = "organizations")]
 #[instrument(skip(module))]
 pub async fn get_organizations(
     arguments: web::Query<GetAllArguments>,

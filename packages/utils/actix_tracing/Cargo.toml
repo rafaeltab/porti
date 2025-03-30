@@ -1,0 +1,10 @@
+[package]
+name = "actix_tracing_util"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+opentelemetry = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+actix-web ={workspace = true}
+futures-util = {workspace = true}

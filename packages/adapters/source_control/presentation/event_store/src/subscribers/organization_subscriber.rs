@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::SystemTime};
 
 use event_store_util::{
     aggregates::organization::EventStoreOrganizationEvent, from_resolved_event,
@@ -6,6 +6,10 @@ use event_store_util::{
 use eventstore::{
     Client, Error, PersistentSubscription, PersistentSubscriptionToAllOptions, ResolvedEvent,
     SubscribeToPersistentSubscriptionOptions, SubscriptionFilter,
+};
+use opentelemetry::{
+    metrics::{Counter, Histogram},
+    KeyValue,
 };
 use source_control_domain::aggregates::organization::OrganizationEvent;
 use source_control_postgres_persistence_adapter::projectors::{Projector, ProjectorError};
@@ -16,6 +20,13 @@ pub struct OrganizationSubscriber {
     pub projector: Box<dyn Projector<OrganizationEvent>>,
     pub subscription_name: String,
     pub worker_id: i32,
+    pub metrics: SubscriberMetrics,
+}
+
+pub struct SubscriberMetrics {
+    pub event_projection_started: Counter<u64>,
+    pub event_projection_completed: Counter<u64>,
+    pub event_projection_duration_seconds: Histogram<f64>,
 }
 
 impl OrganizationSubscriber {
@@ -64,8 +75,14 @@ impl OrganizationSubscriber {
         sub: &mut PersistentSubscription,
         event: ResolvedEvent,
     ) -> eventstore::Result<()> {
-        let event_id = event.get_original_event().id.to_string();
-        Span::current().record("event_id", event_id);
+        let original_event = event.get_original_event();
+        let event_id = original_event.id.to_string();
+        let event_type = &original_event.event_type;
+        Span::current().record("eventstore.event.id", event_id);
+        Span::current().record("eventstore.event.type", event_type);
+        let mut attributes = vec![KeyValue::new("eventstore.event.type", event_type.clone())];
+        self.metrics.event_projection_started.add(1, &attributes);
+        let start = SystemTime::now();
         info!("Begin processing event");
 
         let organization_event = from_resolved_event::<EventStoreOrganizationEvent>(&event);
@@ -73,9 +90,25 @@ impl OrganizationSubscriber {
         let res = self.projector.project(organization_event.0).await;
         if let Err(err) = res {
             self.handle_error(sub, event, err).await;
+            let duration = start.elapsed();
+            attributes.push(KeyValue::new("eventstore_event.failure", true));
+            self.metrics.event_projection_completed.add(1, &attributes);
+            self.metrics.event_projection_duration_seconds.record(
+                duration.map(|t| t.as_secs_f64()).unwrap_or_default(),
+                &attributes,
+            );
+
             return Ok(());
         };
         sub.ack(event).await?;
+        let duration = start.elapsed();
+        attributes.push(KeyValue::new("eventstore_event.failure", false));
+        self.metrics.event_projection_completed.add(1, &attributes);
+        self.metrics.event_projection_duration_seconds.record(
+            duration.map(|t| t.as_secs_f64()).unwrap_or_default(),
+            &attributes,
+        );
+
         info!("Acknowledged event");
         Ok(())
     }

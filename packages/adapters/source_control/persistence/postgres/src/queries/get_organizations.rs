@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use shaku::{Interface, Provider};
 use source_control_domain::entities::organization::OrganizationId;
 use thiserror::Error;
-use tracing::{error, info};
+use tracing::{error, info, span, Instrument, Level};
 
 use crate::provider::PostgresProvider;
 
@@ -42,6 +42,7 @@ impl GetOrganizationsQueryHandler for GetOrganizationsQueryHandlerImpl {
     ) -> Result<Vec<OrganizationResult>, GetOrganizationsQueryError> {
         let limit = query.page_size;
         let offset = query.page * query.page_size;
+        let span = span!(Level::INFO, "select_organization");
         let result = self
             .client
             .get_client()
@@ -53,6 +54,7 @@ GROUP BY o.id
 limit $1 offset $2;",
                 &[&limit, &offset],
             )
+            .instrument(span)
             .await;
 
         match result {

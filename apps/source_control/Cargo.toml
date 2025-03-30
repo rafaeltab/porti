@@ -27,8 +27,9 @@ source_control_domain = {path="../../packages/domains/source_control"}
 source_control_event_store_persistence_adapter = {path="../../packages/adapters/source_control/persistence/event_store"}
 source_control_postgres_persistence_adapter = {path="../../packages/adapters/source_control/persistence/postgres"}
 tracing_util = {path="../../packages/utils/tracing"}
+actix_tracing_util= {path="../../packages/utils/actix_tracing"}
 
-actix-web = "4.9.0"
+actix-web ={workspace = true}
 eventstore = "3.0.0"
 tokio-postgres = {workspace = true}
 shaku = {workspace = true}

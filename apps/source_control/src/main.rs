@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use actix_web::{
-    web::{self, Data},
-    App, HttpServer,
-};
+use actix_tracing_util::MeterFactory;
+use actix_web::{web::Data, App, HttpServer};
+use metrics::{request_metrics, subscriber_metrics};
 use myopenapi::WithOpenApi;
 use shaku::HasProvider;
 use source_control_application::module::{get_module, ApplicationModule};
@@ -26,6 +25,7 @@ use tracing_subscriber::EnvFilter;
 use tracing_util::{setup_tracing, shutdown_tracing};
 use utoipa_actix_web::AppExt;
 
+mod metrics;
 mod startup;
 
 static SUBSCRIPTION_NAME: &str = "organization-projector-003";
@@ -62,6 +62,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
         projector,
         worker_id: 1,
         subscription_name: SUBSCRIPTION_NAME.to_string(),
+        metrics: subscriber_metrics()
     };
 
     info!("Starting subscriber");
@@ -70,12 +71,16 @@ async fn main() -> std::result::Result<(), std::io::Error> {
         .await
         .expect("Could not prepare subscription");
     tokio::spawn(async move { subscriber.subscribe().await });
+    let metrics = request_metrics();
 
     info!("Starting server");
     let val = HttpServer::new(move || {
         let app_data: Data<ApplicationModule> = module.clone().into();
         App::new()
             .wrap(TracingLogger::default())
+            .wrap(MeterFactory {
+                metrics: metrics.clone(),
+            })
             .into_utoipa_app()
             .app_data(app_data)
             .service(get_organization)
@@ -83,10 +88,7 @@ async fn main() -> std::result::Result<(), std::io::Error> {
             .service(get_organizations)
             .service(get_organization_log)
             .service(add_platform_account)
-            .route(
-                "/organization/{organization_id}/platform-account/{platform_account_id}",
-                web::delete().to(remove_platform_account),
-            )
+            .service(remove_platform_account)
             .with_openapi()
     })
     .bind(("0.0.0.0", 8080))?
@@ -112,7 +114,7 @@ mod myopenapi {
     }
     static OPENAPI_STR: RwLock<String> = RwLock::new(String::new());
 
-    #[get("openapi.json")]
+    #[get("openapi.json", name = "openapi")]
     async fn get_openapi() -> impl Responder {
         let val = OPENAPI_STR.read().unwrap().clone();
         HttpResponse::Ok()

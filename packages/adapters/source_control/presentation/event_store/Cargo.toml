@@ -14,3 +14,5 @@ event_store_util = {path= "../../../../utils/event_store"}
 tracing = "0.1.41"
 debug-ignore = {workspace = true}
 tracing-futures = { version = "0.2.5", features = ["tokio"] }
+opentelemetry = {workspace=true}
+opentelemetry-semantic-conventions = { workspace = true }

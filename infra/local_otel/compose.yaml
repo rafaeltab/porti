@@ -88,10 +88,31 @@ services:
 
 volumes:
   grafana-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/grafana_data
   prometheus-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/prometheus_data
   loki-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/loki_data
   tempo-data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: $HOME/.rafaeltab/volumes/source_control/tempo_data
 
 networks:
   monitoring:
     driver: bridge
+

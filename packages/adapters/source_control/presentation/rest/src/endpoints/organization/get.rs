@@ -1,4 +1,4 @@
-use actix_web::{dev::HttpServiceFactory, get, web, HttpRequest, HttpResponse};
+use actix_web::{get, web, HttpRequest, HttpResponse};
 use serde::Deserialize;
 use shaku::HasProvider;
 use source_control_application::{
@@ -27,7 +27,7 @@ pub struct GetArguments {
         (status = 500, description = "An unexpected issue happened", body=InternalServerError)
     )
 )]
-#[get("/organizations/{organization_id}")]
+#[get("/organizations/{organization_id}", name = "organization")]
 #[instrument(skip(module, req))]
 pub async fn get_organization(
     arguments: web::Path<GetArguments>,
@@ -48,7 +48,7 @@ pub async fn get_organization(
             HttpResponse::Ok().json(dto)
         }
         Err(GetOrganizationQueryError::NotFound { .. }) => {
-            NotFound::new(&req).into()
+            NotFound::from_request(&req).into()
         }
         Err(GetOrganizationQueryError::Connection) => InternalServerError::new(
             "Something went wrong while retreiving the organization".to_string(),

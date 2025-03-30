@@ -40,7 +40,7 @@ pub struct AddPath {
         (status = 500, description = "An unexpected issue happened", body=InternalServerError)
     )
 )]
-#[post("/organization/{organization_id}/platform-account")]
+#[post("/organizations/{organization_id}/platform-accounts", name = "organization_platform_accounts")]
 #[instrument(skip(module, req))]
 pub async fn add_platform_account(
     arguments: web::Json<AddArguments>,
@@ -86,6 +86,6 @@ pub async fn add_platform_account(
         Err(AddPlatformAccountCommandError::AccountAlreadyAdded) => {
             Conflict::new("Account was already added to this organization".to_string()).into()
         }
-        Err(AddPlatformAccountCommandError::NotFound { .. }) => NotFound::new(&req).into(),
+        Err(AddPlatformAccountCommandError::NotFound { .. }) => NotFound::from_request(&req).into(),
     }
 }

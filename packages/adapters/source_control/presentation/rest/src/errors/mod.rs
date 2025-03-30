@@ -4,17 +4,17 @@ use serde::Serialize;
 use utoipa::{PartialSchema, ToSchema};
 
 impl InternalServerError {
-    pub fn new(message: String) -> Self {
+    pub fn new<TMessage: Into<String>>(message: TMessage) -> Self {
         InternalServerError {
             title: "Bad Request",
             status: StatusCodeS(StatusCode::INTERNAL_SERVER_ERROR),
-            detail: message,
+            detail: message.into(),
         }
     }
 }
 
 impl NotFound {
-    pub fn new(req: &HttpRequest) -> Self {
+    pub fn from_request(req: &HttpRequest) -> Self {
         NotFound {
             title: "Not Found",
             status: StatusCodeS(StatusCode::NOT_FOUND),
@@ -22,14 +22,37 @@ impl NotFound {
             resource: req.full_url().to_string(),
         }
     }
+
+    pub fn from_resource<U, I>(req: &HttpRequest, name: &str, elements: U) -> Self
+    where
+        U: IntoIterator<Item = I>,
+        I: AsRef<str>,
+    {
+        NotFound {
+            title: "Not Found",
+            status: StatusCodeS(StatusCode::NOT_FOUND),
+            detail: "The resource could not be found".to_string(),
+            resource: req.url_for(name, elements).unwrap().into(),
+        }
+    }
 }
 
 impl Conflict {
-    pub fn new(message: String) -> Self {
+    pub fn new<TMessage: Into<String>>(message: TMessage) -> Self {
         Conflict {
             title: "Conflict",
             status: StatusCodeS(StatusCode::CONFLICT),
-            detail: message.clone(),
+            detail: message.into(),
+        }
+    }
+}
+
+impl BadRequest {
+    pub fn new<TMessage: Into<String>>(message: TMessage) -> Self {
+        BadRequest {
+            title: "BadRequest",
+            status: StatusCodeS(StatusCode::BAD_REQUEST),
+            detail: message.into(),
         }
     }
 }
@@ -59,6 +82,14 @@ pub struct Conflict {
     detail: String,
 }
 
+#[derive(Serialize, Debug, Display, ToSchema)]
+#[display("BadRequest")]
+pub struct BadRequest {
+    title: &'static str,
+    status: StatusCodeS,
+    detail: String,
+}
+
 impl From<InternalServerError> for HttpResponse {
     fn from(value: InternalServerError) -> Self {
         HttpResponse::build(value.status.0)
@@ -77,6 +108,14 @@ impl From<NotFound> for HttpResponse {
 
 impl From<Conflict> for HttpResponse {
     fn from(value: Conflict) -> Self {
+        HttpResponse::build(value.status.0)
+            .content_type("application/problem+json")
+            .json(value)
+    }
+}
+
+impl From<BadRequest> for HttpResponse {
+    fn from(value: BadRequest) -> Self {
         HttpResponse::build(value.status.0)
             .content_type("application/problem+json")
             .json(value)
