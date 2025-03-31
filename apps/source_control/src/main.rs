@@ -55,22 +55,23 @@ async fn main() -> std::result::Result<(), std::io::Error> {
         eventstore_client_arc.clone(),
     ));
 
-    let projector: Box<dyn Projector<OrganizationEvent>> = module.provide().unwrap();
+    for _ in 0..64 {
+        let projector: Box<dyn Projector<OrganizationEvent>> = module.provide().unwrap();
+        let subscriber = OrganizationSubscriber {
+            client: eventstore_client_arc.clone(),
+            projector,
+            worker_id: 1,
+            subscription_name: SUBSCRIPTION_NAME.to_string(),
+            metrics: subscriber_metrics(),
+        };
 
-    let subscriber = OrganizationSubscriber {
-        client: eventstore_client_arc.clone(),
-        projector,
-        worker_id: 1,
-        subscription_name: SUBSCRIPTION_NAME.to_string(),
-        metrics: subscriber_metrics()
-    };
-
-    info!("Starting subscriber");
-    subscriber
-        .prepare_subscription()
-        .await
-        .expect("Could not prepare subscription");
-    tokio::spawn(async move { subscriber.subscribe().await });
+        info!("Starting subscriber");
+        subscriber
+            .prepare_subscription()
+            .await
+            .expect("Could not prepare subscription");
+        tokio::spawn(async move { subscriber.subscribe().await });
+    }
     let metrics = request_metrics();
 
     info!("Starting server");

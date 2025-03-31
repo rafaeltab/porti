@@ -19,6 +19,9 @@
         },
         "delete:infra": {
             "cache": false
+        },
+        "build:infra": {
+            "cache": false
         }
     }
 }

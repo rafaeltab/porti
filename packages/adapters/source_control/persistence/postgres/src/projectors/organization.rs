@@ -1,5 +1,6 @@
 use shaku::Provider;
 use std::sync::Arc;
+use thiserror::Error;
 
 use async_trait::async_trait;
 use source_control_domain::aggregates::organization::OrganizationEvent;
@@ -16,13 +17,28 @@ pub struct OrganizationProjector {
     pub client: Arc<dyn PostgresProvider>,
 }
 
-impl ProjectorError for tokio_postgres::Error {}
+#[derive(Error, Debug)]
+enum OrganizationProjectorError {
+    #[error("Unknown error")]
+    Unexpected(Box<tokio_postgres::Error>),
+    #[error("The key already existed in the database")]
+    DuplicateKey,
+}
+
+impl ProjectorError for OrganizationProjectorError {
+    fn get_retryable(&self) -> bool {
+        match self {
+            OrganizationProjectorError::Unexpected(_) => true,
+            OrganizationProjectorError::DuplicateKey => false,
+        }
+    }
+}
 
 #[async_trait]
 impl Projector<OrganizationEvent> for OrganizationProjector {
     #[instrument(skip(self), err)]
     async fn project(&self, event: OrganizationEvent) -> Result<(), Box<dyn ProjectorError>> {
-        let res = match event {
+        match event {
             OrganizationEvent::AddPlatformAccount {
                 organization_id,
                 account,
@@ -31,17 +47,40 @@ impl Projector<OrganizationEvent> for OrganizationProjector {
                 let organization_id = i64::from_ne_bytes(organization_id.0.to_ne_bytes());
 
                 let insert_span = span!(Level::INFO, "insert_platform_account");
-                self.client.get_client().execute("INSERT INTO \"PlatformAccount\" (id, organization_id, name, platform_name) VALUES ($1, $2, $3, $4);", &[&id, &organization_id, &account.name, &account.platform.name]).instrument(insert_span).await
+                let res = self.client.get_client().await.execute("INSERT INTO \"PlatformAccount\" (id, organization_id, name, platform_name) VALUES ($1, $2, $3, $4);", &[&id, &organization_id, &account.name, &account.platform.name]).instrument(insert_span).await;
+
+                match res {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        if let Some(db_error) = e.as_db_error() {
+                            if db_error.code().code() == "23505" {
+                                return Err(Box::new(OrganizationProjectorError::DuplicateKey));
+                            }
+                        }
+
+                        return Err(Box::new(OrganizationProjectorError::Unexpected(Box::new(
+                            e,
+                        ))));
+                    }
+                }
             }
             OrganizationEvent::RemovePlatformAccount { account_id, .. } => {
                 let id = i64::from_ne_bytes(account_id.0.to_ne_bytes());
 
                 let delete_span = span!(Level::INFO, "delete_platform_account");
-                self.client
+                match self
+                    .client
                     .get_client()
+                    .await
                     .execute("DELETE FROM \"PlatformAccount\" WHERE id = $1;", &[&id])
                     .instrument(delete_span)
                     .await
+                {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(Box::new(OrganizationProjectorError::Unexpected(Box::new(
+                        e,
+                    )))),
+                }
             }
             OrganizationEvent::CreateOrganizationEvent {
                 organization_id,
@@ -49,19 +88,31 @@ impl Projector<OrganizationEvent> for OrganizationProjector {
             } => {
                 let id = i64::from_ne_bytes(organization_id.0.to_ne_bytes());
                 let insert_span = span!(Level::INFO, "insert_organization");
-                self.client
+                let res = self
+                    .client
                     .get_client()
+                    .await
                     .execute(
                         "INSERT INTO \"Organization\" (id, name)  VALUES ($1, $2);",
                         &[&id, &name],
                     )
                     .instrument(insert_span)
-                    .await
+                    .await;
+
+                match res {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        if let Some(db_error) = e.as_db_error() {
+                            if db_error.code().code() == "23505" {
+                                return Err(Box::new(OrganizationProjectorError::DuplicateKey));
+                            }
+                        }
+                        return Err(Box::new(OrganizationProjectorError::Unexpected(Box::new(
+                            e,
+                        ))));
+                    }
+                }
             }
-        };
-        match res {
-            Ok(_) => Ok(()),
-            Err(err) => Err(Box::new(err)),
         }
     }
 }

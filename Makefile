@@ -8,3 +8,6 @@ stop-local-infra:
 
 delete-local-infra:
 	turbo run delete:infra --filter="@porti/local-*"
+
+build-docker:
+	turbo run build:infra --filter="@porti/local-*"

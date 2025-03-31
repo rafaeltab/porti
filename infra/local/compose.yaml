@@ -132,8 +132,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 2GB
+          cpus: '2'
+          memory: 16GB
     container_name: tempo
     user: root  # Running as root for development
     ports:
@@ -151,7 +151,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '2'
           memory: 2GB
     container_name: otel-collector
     ports:
@@ -170,7 +170,9 @@ services:
       - local
 
   source_control:
-    image: source_control:latest
+    build:
+      dockerfile: ./apps/source_control/Dockerfile
+      context: ../../
     depends_on:
       - postgres
       - eventstore.db

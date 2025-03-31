@@ -1,7 +1,6 @@
-use std::{ops::Deref, sync::{Arc, LazyLock}};
+use std::sync::{Arc, LazyLock};
 
 use futures_util::future::BoxFuture;
-use rand::{rng, Rng};
 use reqwest::Client;
 use serde::Deserialize;
 use tokio::sync::RwLock;
@@ -15,25 +14,17 @@ pub struct GetOrganizations {
     pub root_url: Arc<String>,
 }
 
-static page_nr: LazyLock<RwLock<u32>> = LazyLock::new(|| RwLock::new(0));
+static NEXT_PAGE: LazyLock<RwLock<Option<String>>> = LazyLock::new(|| RwLock::new(None));
 
 impl GetOrganizations {
     async fn request(&self, client: Client, request_handler: Box<dyn RequestHandler>) {
-        let mut page_lock = page_nr.write().await;
-        let page: u32 = *page_lock;
-        let page_size: u32 = 100;
+        let mut page_lock = NEXT_PAGE.write().await;
 
-        if page > 100 {
-            return
-        }
+        let page = &*page_lock
+            .clone()
+            .unwrap_or(format!("{}/organizations", self.root_url));
 
-        *page_lock = page + 1;
-
-        let url = format!(
-            "{}/organizations?page_size={}&page={}",
-            self.root_url, page_size, page
-        );
-        let req = client.get(url);
+        let req = client.get(page);
         let req = request_handler.handle_request(req);
         let res = req.send().await;
         let res = request_handler.handle_response(res);
@@ -43,6 +34,7 @@ impl GetOrganizations {
                 let response_json: Response = serde_json::from_str(&body).unwrap();
 
                 let ids: Vec<u64> = response_json.items.iter().map(|o| o.id).collect();
+                *page_lock = response_json.metadata.next;
                 let missing_orgs = self.store.get_missing_organizations(ids).await;
                 for org in missing_orgs {
                     let _ = self
@@ -71,6 +63,12 @@ impl Request for GetOrganizations {
 #[derive(Deserialize)]
 struct Response {
     items: Vec<ResponseOrganization>,
+    metadata: Metadata,
+}
+
+#[derive(Deserialize)]
+struct Metadata {
+    next: Option<String>,
 }
 
 #[derive(Deserialize)]

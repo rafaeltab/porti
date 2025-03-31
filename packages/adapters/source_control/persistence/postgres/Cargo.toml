@@ -13,4 +13,4 @@ thiserror = "2.0.11"
 tokio-postgres = "0.7.12"
 tracing = {workspace = true}
 shaku = {workspace = true}
-
+bb8-postgres={workspace=true}

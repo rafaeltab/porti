@@ -1,20 +1,30 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use bb8_postgres::{
+    bb8::{Pool, PooledConnection},
+    PostgresConnectionManager,
+};
 use shaku::{Component, Interface};
-use tokio_postgres::Client;
+use tokio_postgres::NoTls;
 
+#[async_trait]
 pub trait PostgresProvider: Interface {
-    fn get_client(&self) -> Arc<Client>;
+    async fn get_client(&self) -> PooledConnection<'_, PostgresConnectionManager<NoTls>>;
 }
 
 #[derive(Component)]
 #[shaku(interface = PostgresProvider)]
 pub struct PostgresProviderImpl {
-    client: Arc<Client>,
+    client: Arc<Pool<PostgresConnectionManager<NoTls>>>,
 }
 
+#[async_trait]
 impl PostgresProvider for PostgresProviderImpl {
-    fn get_client(&self) -> Arc<Client> {
-        self.client.clone()
+    async fn get_client(&self) -> PooledConnection<'_, PostgresConnectionManager<NoTls>> {
+        self.client
+            .get()
+            .await
+            .expect("Something happened while getting a connection")
     }
 }

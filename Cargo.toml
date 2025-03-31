@@ -34,3 +34,4 @@ opentelemetry = { version = "0.28.0", features = ["metrics", "logs"] }
 opentelemetry_sdk = { version = "0.28.0", features = ["rt-tokio", "logs"] }
 opentelemetry-otlp = { version = "0.28.0", features = ["grpc-tonic", "metrics", "logs"] }
 opentelemetry-semantic-conventions = { version = "0.28.0" }
+bb8-postgres = "0.9.0"

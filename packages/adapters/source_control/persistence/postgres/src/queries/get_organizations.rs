@@ -8,9 +8,11 @@ use tracing::{error, info, span, Instrument, Level};
 
 use crate::provider::PostgresProvider;
 
+const PAGE_SIZE: i64 = 100;
+
 pub struct GetOrganizationsQuery {
-    pub page: i64,
-    pub page_size: i64,
+    pub before: Option<OrganizationId>,
+    pub after: Option<OrganizationId>,
 }
 
 pub struct OrganizationResult {
@@ -40,27 +42,66 @@ impl GetOrganizationsQueryHandler for GetOrganizationsQueryHandlerImpl {
         &self,
         query: GetOrganizationsQuery,
     ) -> Result<Vec<OrganizationResult>, GetOrganizationsQueryError> {
-        let limit = query.page_size;
-        let offset = query.page * query.page_size;
+        let GetOrganizationsQuery { before, after } = query;
         let span = span!(Level::INFO, "select_organization");
-        let result = self
-            .client
-            .get_client()
-            .query(
-                "select o.*, count(pa.*)
+        let client = self.client.get_client().await;
+        let result = match (before, after) {
+            (None, Some(aft)) => {
+                client
+                    .query(
+                        "select o.*, count(pa.*)
+from \"Organization\" o
+         left join \"PlatformAccount\" pa ON o.id = pa.organization_id
+WHERE o.id > $2
+GROUP BY o.id
+ORDER BY o.id ASC
+LIMIT $1;",
+                        &[&PAGE_SIZE, &domain_id_to_dbid(aft.to_primitive())],
+                    )
+                    .instrument(span)
+                    .await
+            }
+            (Some(bef), None) => {
+                client
+                    .query(
+                        "select o.*, count(pa.*)
+from \"Organization\" o
+         left join \"PlatformAccount\" pa ON o.id = pa.organization_id
+WHERE o.id < $2
+GROUP BY o.id
+ORDER BY o.id DESC
+LIMIT $1;",
+                        &[&PAGE_SIZE, &domain_id_to_dbid(bef.to_primitive())],
+                    )
+                    .instrument(span)
+                    .await
+            }
+            _ => {
+                client
+                    .query(
+                        "select o.*, count(pa.*)
 from \"Organization\" o
          left join \"PlatformAccount\" pa ON o.id = pa.organization_id
 GROUP BY o.id
-limit $1 offset $2;",
-                &[&limit, &offset],
-            )
-            .instrument(span)
-            .await;
+ORDER BY o.id ASC
+LIMIT $1;",
+                        &[&PAGE_SIZE],
+                    )
+                    .instrument(span)
+                    .await
+            }
+        };
 
         match result {
             Ok(result) => {
                 info!("Successfully queried organizations");
-                result.iter().map(map_row_to_organization_result).collect()
+                let vals: Result<Vec<OrganizationResult>, GetOrganizationsQueryError> =
+                    result.iter().map(map_row_to_organization_result).collect();
+
+                vals.map(|mut vec| {
+                    vec.sort_by_key(|x| domain_id_to_dbid(x.id.to_primitive()));
+                    vec
+                })
             }
             Err(err) => {
                 error!(
@@ -75,6 +116,10 @@ limit $1 offset $2;",
 
 fn dbid_to_domain_id(dbid: i64) -> u64 {
     u64::from_ne_bytes(dbid.to_ne_bytes())
+}
+
+fn domain_id_to_dbid(domainid: u64) -> i64 {
+    i64::from_ne_bytes(domainid.to_ne_bytes())
 }
 
 fn map_row_to_organization_result(

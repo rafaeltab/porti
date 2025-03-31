@@ -10,4 +10,7 @@ pub trait Projector<TEvent>: Interface + Send + Sync {
     async fn project(&self, event: TEvent) -> Result<(), Box<dyn ProjectorError>>;
 }
 
-pub trait ProjectorError: Debug + Display + Send + Sync {}
+pub trait ProjectorError: Debug + Display + Send + Sync {
+    fn get_retryable(&self) -> bool;
+}
+

@@ -14,6 +14,7 @@ eventstore = "3.0.0"
 
 source_control_event_store_persistence_adapter = {path="../../adapters/source_control/persistence/event_store"}
 source_control_postgres_persistence_adapter = {path="../../adapters/source_control/persistence/postgres"}
+bb8-postgres={workspace=true}
 
 [dev-dependencies]
 clippy = "0.0.302"

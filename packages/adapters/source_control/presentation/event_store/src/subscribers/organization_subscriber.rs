@@ -123,13 +123,11 @@ impl OrganizationSubscriber {
         let span = span!(Level::ERROR, "projection_failure");
         let _span = span.enter();
         error!("Error occurred while running projection {:?}", err);
-        let res = sub
-            .nack(
-                event,
-                eventstore::NakAction::Retry,
-                "Projection failed, retry",
-            )
-            .await;
+        let action = match err.get_retryable() {
+            true => eventstore::NakAction::Retry,
+            false => eventstore::NakAction::Park,
+        };
+        let res = sub.nack(event, action, "Projection failed, retry").await;
         if let Err(err) = res {
             error!("Error occurred while nacking message {:?}", err);
         }

@@ -5,6 +5,7 @@
     "scripts": {
         "start:infra": "docker compose up -d",
         "stop:infra": "docker compose stop",
-        "delete:infra": "docker compose down"
+        "delete:infra": "docker compose down",
+        "build:infra": "docker compose build"
     }
 }

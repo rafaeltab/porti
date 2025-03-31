@@ -1,32 +1,28 @@
 use std::sync::Arc;
 
+use bb8_postgres::{bb8::Pool, PostgresConnectionManager};
 use tokio_postgres::{tls::NoTlsStream, Client, Connection, NoTls, Socket};
 use tracing::{error, info, instrument};
 
 #[instrument]
-pub async fn setup_postgres() -> Arc<Client> {
+pub async fn setup_postgres() -> Arc<Pool<PostgresConnectionManager<NoTls>>> {
     info!("Connecting to postgres");
-    let (postgres_client, postgres_connection) = connect_postgres().await;
+    let postgres_client = connect_postgres().await;
 
-    info!("Keeping postgres connection alive");
-    tokio::spawn(async move {
-        if let Err(e) = postgres_connection.await {
-            error!(error = format!("{:?}", e), "postgres connection error");
-        }
-    });
     Arc::new(postgres_client)
 }
 
 #[instrument]
-async fn connect_postgres() -> (Client, Connection<Socket, NoTlsStream>) {
-    let res = tokio_postgres::Config::default()
+async fn connect_postgres() -> Pool<PostgresConnectionManager<NoTls>> {
+    let mut config = tokio_postgres::Config::default();
+    config
         .user("source_control")
         .host("postgres")
-        .password("S3cret")
-        .connect(NoTls)
-        .await;
+        .password("S3cret");
+    let manager = PostgresConnectionManager::new(config, NoTls);
+    let pool = Pool::builder().max_size(32).build(manager).await;
 
-    match res {
+    match pool {
         Ok(client_and_connection) => client_and_connection,
         Err(err) => {
             error!(

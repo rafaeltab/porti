@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bb8_postgres::{bb8::Pool, PostgresConnectionManager};
 use shaku::module;
 use source_control_domain::factories::platform_account::PlatformAccountFactoryImpl;
 use source_control_event_store_persistence_adapter::{
@@ -11,6 +12,7 @@ use source_control_postgres_persistence_adapter::{
     provider::{PostgresProviderImpl, PostgresProviderImplParameters},
     queries::get_organizations::GetOrganizationsQueryHandlerImpl,
 };
+use tokio_postgres::NoTls;
 
 use crate::{
     commands::{
@@ -45,7 +47,7 @@ module! {
 }
 
 pub fn get_module(
-    postgres_client: Arc<tokio_postgres::Client>,
+    postgres_client: Arc<Pool<PostgresConnectionManager<NoTls>>>,
     eventstore_client: Arc<eventstore::Client>,
 ) -> ApplicationModule {
     ApplicationModule::builder()

@@ -106,10 +106,10 @@ async fn main() {
             store: store.clone(),
             root_url: root_url.clone(),
         }),
-        Box::new(OpenApi {
-            store: store.clone(),
-            root_url: root_url.clone(),
-        }),
+        // Box::new(OpenApi {
+        //     store: store.clone(),
+        //     root_url: root_url.clone(),
+        // }),
         Box::new(PostOrganizations {
             store: store.clone(),
             root_url: root_url.clone(),

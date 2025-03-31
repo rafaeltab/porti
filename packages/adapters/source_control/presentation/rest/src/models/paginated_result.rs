@@ -9,7 +9,6 @@ pub struct PaginatedResult<T> {
 
 #[derive(Serialize, ToSchema)]
 pub struct PageMetadata {
-    pub page: i64,
-    #[serde(rename = "pageSize")]
-    pub page_size: i64
+    pub next: Option<String>,
+    pub previous: Option<String>
 }
