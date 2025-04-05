@@ -19,7 +19,7 @@ pub struct OrganizationSubscriber {
     pub client: Arc<Client>,
     pub projector: Box<dyn Projector<OrganizationEvent>>,
     pub subscription_name: String,
-    pub worker_id: i32,
+    pub worker_id: u32,
     pub metrics: SubscriberMetrics,
 }
 

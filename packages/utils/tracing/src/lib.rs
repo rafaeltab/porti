@@ -21,16 +21,13 @@ use tracing_subscriber::{layer::SubscriberExt, Registry};
 mod globals;
 
 pub fn setup_tracing(
-    default_service_name: String,
+    service_name: String,
+    otlp_endpoint: String,
     env_filter: EnvFilter,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     global::set_text_map_propagator(TraceContextPropagator::new());
 
     // Configure the OTLP exporter.  Read from environment variables.
-    let otlp_endpoint =
-        std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or("http://otel-collector:4317".to_string());
-    let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or(default_service_name);
-
     let otlp_span_exporter = SpanExporter::builder()
         .with_tonic()
         .with_endpoint(otlp_endpoint.clone())

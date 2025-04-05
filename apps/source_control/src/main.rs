@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use actix_tracing_util::MeterFactory;
 use actix_web::{web::Data, App, HttpServer};
+use config::get_config;
 use metrics::{request_metrics, subscriber_metrics};
 use myopenapi::WithOpenApi;
 use shaku::HasProvider;
@@ -25,43 +26,68 @@ use tracing_subscriber::EnvFilter;
 use tracing_util::{setup_tracing, shutdown_tracing};
 use utoipa_actix_web::AppExt;
 
+mod config;
 mod metrics;
 mod startup;
-
-static SUBSCRIPTION_NAME: &str = "organization-projector-003";
 
 #[tokio::main]
 #[instrument]
 async fn main() -> std::result::Result<(), std::io::Error> {
-    let env_filter = EnvFilter::from_default_env()
-        .add_directive(LevelFilter::INFO.into())
-        .add_directive("tokio_postgres=trace".parse().expect(""))
-        .add_directive("eventstore=trace".parse().expect(""))
-        .add_directive("tokio_postgres::connection=info".parse().expect(""));
+    let config = get_config();
 
-    if let Err(err) = setup_tracing("source_control".to_string(), env_filter) {
-        println!("Failed to setup tracing, {:?}", err);
-        panic!();
+    let mut env_filter = EnvFilter::from_default_env();
+
+    let level_filter = match config.telemetry.level_directive.to_lowercase().as_str() {
+        "off" => LevelFilter::OFF,
+        "error" => LevelFilter::ERROR,
+        "warn" => LevelFilter::WARN,
+        "info" => LevelFilter::INFO,
+        "debug" => LevelFilter::DEBUG,
+        "trace" => LevelFilter::TRACE,
+        _ => panic!("Incorrect level filter passed for configuration"),
+    };
+
+    env_filter = env_filter.add_directive(level_filter.into());
+
+    for directive in &config.telemetry.directives {
+        env_filter = env_filter.add_directive(
+            directive
+                .parse()
+                .expect("Incorrect directive passed for configuration"),
+        );
+    }
+
+    if let Err(err) = setup_tracing(
+        config.telemetry.service_name.clone(),
+        config.telemetry.open_telemetry_endpoint.clone(),
+        env_filter,
+    ) {
+        panic!("Failed to setup tracing, {:?}", err);
     }
 
     println!("Starting");
     info!("Starting");
 
-    let eventstore_client_arc = setup_eventstore();
-    let postgres_client_arc = setup_postgres().await;
+    let eventstore_client_arc = setup_eventstore(&config.eventstore.connection_string);
+    let postgres_client_arc = setup_postgres(&config.postgres).await;
 
     let module = Arc::new(get_module(
         postgres_client_arc.clone(),
         eventstore_client_arc.clone(),
     ));
 
-    for _ in 0..64 {
+    for i in 0..config.eventstore.projections.organizations_postgres.workers {
         let projector: Box<dyn Projector<OrganizationEvent>> = module.provide().unwrap();
         let subscriber = OrganizationSubscriber {
             client: eventstore_client_arc.clone(),
             projector,
-            worker_id: 1,
-            subscription_name: SUBSCRIPTION_NAME.to_string(),
+            worker_id: i,
+            subscription_name: config
+                .eventstore
+                .projections
+                .organizations_postgres
+                .persistent_subscription_name
+                .clone(),
             metrics: subscriber_metrics(),
         };
 

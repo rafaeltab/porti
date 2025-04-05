@@ -1,0 +1,26 @@
+{
+    "telemetry": {
+        "directives": [
+            "tokio_postgres=trace",
+            "eventstore=trace",
+            "tokio_postgres::connection=info"
+        ],
+        "openTelemetryEndpoint": "http://otel-collector:4317",
+        "serviceName": "source_control",
+        "levelDirective": "info"
+    },
+    "eventstore": {
+        "connectionString": "esdb://eventstore.db:2113?tls=false",
+        "projections": {
+            "organizationsPostgres": {
+                "workers": 64,
+                "persistentSubscriptionName": "organization-projector-003"
+            }
+        }
+    },
+    "postgres": {
+        "user": "source_control",
+        "host": "postgres",
+        "password": "S3cret"
+    }
+}

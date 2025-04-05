@@ -1,5 +1,11 @@
 .PHONY: start-local stop-local delete-local
 
+build:
+	turbo run build
+
+dev:
+	turbo run run
+
 start-local-infra:
 	turbo run start:infra --filter="@porti/local-*"
 

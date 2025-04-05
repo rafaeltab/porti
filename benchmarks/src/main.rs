@@ -7,8 +7,7 @@ use std::{
 use rand::{rng, seq::IndexedRandom};
 use requests::{
     delete_platform_account::DeletePlatformAccount, get_organization::GetOrganization,
-    get_organization_log::GetOrganizationLog, get_organizations::GetOrganizations,
-    openapi::OpenApi, post_organizations::PostOrganizations,
+    get_organization_log::GetOrganizationLog, get_organizations::GetOrganizations, post_organizations::PostOrganizations,
     post_platform_accounts::PostPlatformAccounts, Request, RequestHandler,
 };
 use serde::Deserialize;
